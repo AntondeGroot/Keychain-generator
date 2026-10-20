@@ -12,8 +12,8 @@ from keychain.design import Keychain, design_keychain
 from keychain.export.svg import face_svg
 from keychain.files import keychain_files, zipped
 from keychain.picture.detection import detect_colours
-from keychain.picture.painted import DetailMask, PaintedMask
-from keychain.picture.palette import parse_colour, with_unique_names
+from keychain.picture.painted import ColourPaint, DetailMask, PaintedMask, Painting
+from keychain.picture.palette import Colour, parse_colour, with_unique_names
 from keychain.spec import KeychainSpec
 
 MAX_PICTURE_PX = 4000  # larger pictures take minutes, and far more detail than 5 cm can show
@@ -47,15 +47,47 @@ def download_action(request: dict) -> Response:
 
 def _designed(request: dict) -> Keychain:
     image = _image(request["image"])
-    mask, detail_mask = request.get("mask"), request.get("detail")
-    painted = PaintedMask.from_image(_image(mask), image.size) if mask else None
-    detail = DetailMask.from_image(_image(detail_mask), image.size) if detail_mask else None
+    palette = _palette(request)
+    hole = request.get("hole")
+    hole_centre = (float(hole[0]), float(hole[1])) if hole else None
+    spec = _spec(request.get("spec", {}))
+    painting = _painting(request, image.size)
+    return design_keychain(image, palette, spec, painting, hole_centre, _rim_colour(request, palette))
+
+
+def _palette(request: dict) -> list[Colour]:
     palette = with_unique_names([parse_colour(f"{c['name']}={c['hex']}") for c in request["colours"]])
     if not palette:
         raise ValueError("choose at least one colour")
-    hole = request.get("hole")
-    hole_centre = (float(hole[0]), float(hole[1])) if hole else None
-    return design_keychain(image, palette, _spec(request.get("spec", {})), painted, hole_centre, detail)
+    return palette
+
+
+def _painting(request: dict, size: tuple[int, int]) -> Painting:
+    """The page sends each layer it painted on as a PNG, and leaves out the others."""
+    layers = {name: _image(request[name]) for name in ("mask", "detail", "paint") if request.get(name)}
+    return Painting.of(
+        size,
+        mask=PaintedMask.from_image(layers["mask"], size) if "mask" in layers else None,
+        detail=DetailMask.from_image(layers["detail"], size) if "detail" in layers else None,
+        colours=ColourPaint.from_image(layers["paint"], size) if "paint" in layers else None,
+        connections=_connections(request.get("connections") or []),
+    )
+
+
+def _connections(lines: list) -> tuple:
+    """Each line as ((x, y), (x, y)) in the picture's own pixels."""
+    return tuple(((float(a[0]), float(a[1])), (float(b[0]), float(b[1]))) for a, b in lines)
+
+
+def _rim_colour(request: dict, palette: list[Colour]) -> Colour | None:
+    """The colour named for the rim, or none for ink."""
+    name = request.get("rim")
+    if not name:
+        return None
+    named = [colour for colour in palette if colour.name == name]
+    if not named:
+        raise ValueError(f"the rim colour '{name}' is not one of the colours")
+    return named[0]
 
 
 def _spec(values: dict) -> KeychainSpec:
