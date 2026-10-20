@@ -47,9 +47,10 @@
         <label>Core (mm) <input type="number" data-spec="core_mm" value="1.4" min="0.2" step="0.1"></label>
         <label>Rim (mm) <input type="number" data-spec="rim_mm" value="1.5" min="0.4" step="0.1"></label>
         <label>Hole (mm) <input type="number" data-spec="hole_mm" value="4" min="1" step="0.5"></label>
-        <label>Smoothing (mm)
-          <input type="range" data-spec="smoothing_mm" min="0.02" max="0.4" step="0.02" value="0.08">
+        <label>Curve tolerance (mm)
+          <input type="range" data-spec="curve_tolerance_mm" min="0.02" max="0.3" step="0.02" value="0.08">
         </label>
+        <p class="hint">How far the spline curves may stray from the picture: higher is smoother, with fewer points.</p>
       </fieldset>
 
       <fieldset>

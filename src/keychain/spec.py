@@ -14,7 +14,8 @@ class KeychainSpec:
     min_line_mm: float = 0.4  # narrowest line the nozzle prints reliably
     gap_mm: float = 2.0  # openings in the drawing's outer line up to this wide are closed
     smoothing_mm: float = 0.08  # evens out JPEG noise and pixel steps along colour edges
-    simplify_mm: float = 0.02  # far below print resolution; keeps files small
+    curve_tolerance_mm: float = 0.08  # how far the drawn splines may stray from the traced edges
+    simplify_mm: float = 0.005  # far below print resolution, and smooth even in a zoomed preview
 
     def __post_init__(self) -> None:
         if min(self.width_mm, self.thickness_mm, self.core_mm, self.rim_mm, self.hole_mm) <= 0:
