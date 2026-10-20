@@ -83,6 +83,16 @@ button {
   cursor: pointer;
 }
 
+label.button {
+  display: inline-block;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  cursor: pointer;
+}
+label.button:focus-within { outline: 2px solid var(--accent); }
+
 button[aria-pressed="true"] { border-color: var(--accent); outline: 2px solid var(--accent); }
 button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 button:disabled { opacity: 0.5; cursor: default; }

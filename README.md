@@ -52,6 +52,10 @@ This opens a page on your own computer (http://127.0.0.1:8765, not reachable fro
    the keychain if needed.
 5. **Download** a zip with the 3MF and the STLs.
 
+**Save project** keeps everything in one `.keychain.json` file: the picture, the painted masks
+and colour paint, the Connect lines, the colours, sizes, rim colour and ring position.
+**Open project** carries on where you left off.
+
 The preview updates by itself after every change; each one takes a few seconds.
 
 ### On the command line
@@ -81,6 +85,7 @@ lines, and unless `--rim-colour` says otherwise also the rim, the ring and the c
 | `--rim` | `1.5` | border around the picture in mm |
 | `--hole` | `4.0` | keyring hole diameter in mm |
 | `--rim-colour` | ink | name of the colour for the rim, the ring and the core, such as `white`: a light rim keeps the picture's outer lines visible |
+| `--project` | | a `.keychain.json` saved by the web page, instead of the picture and `--colours`; the size options and `--rim-colour` given here win over the project's |
 | `--out` | `out` | output folder |
 | `--open` | | show the output folder when done |
 

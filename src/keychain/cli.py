@@ -1,4 +1,5 @@
-"""Command line: find a picture's colours, turn the picture into keychain files, or open the web page."""
+"""Command line: find a picture's colours, turn a picture or a saved project into keychain files,
+or open the web page."""
 
 import argparse
 from pathlib import Path
@@ -9,10 +10,20 @@ from keychain.design import design_keychain
 from keychain.files import open_folder, write_keychain_files
 from keychain.picture.detection import detect_colours
 from keychain.picture.palette import Colour, parse_colour, with_unique_names
+from keychain.project import read_project
 from keychain.spec import KeychainSpec
+from keychain.web.api import designed_from_request, file_name
 from keychain.web.server import serve
 
 DEFAULT_PORT = 8765  # 8000 and 8080 are often taken by other local servers
+# Size options and the KeychainSpec fields they set. Left out, they keep the project's or the default.
+SIZE_OPTIONS = {
+    "width": "width_mm",
+    "thickness": "thickness_mm",
+    "core": "core_mm",
+    "rim": "rim_mm",
+    "hole": "hole_mm",
+}
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -32,14 +43,33 @@ def colours(args) -> None:
 
 
 def make(args) -> None:
+    keychain, name = _from_project(args) if args.project else _from_picture(args)
+    folder = write_keychain_files(name, keychain, args.out)
+    print(folder.resolve())
+    if args.open:
+        open_folder(folder)
+
+
+def _from_picture(args):
+    if args.image is None:
+        raise ValueError("give a picture, or a project saved by the web page with --project")
     image = Image.open(args.image)
     palette = _palette(args, image)
     print(f"colours: {_as_arguments(palette)}")
     keychain = design_keychain(image, palette, _spec(args), rim_colour=_rim_colour(args, palette))
-    folder = write_keychain_files(_name(args.image), keychain, args.out)
-    print(folder.resolve())
-    if args.open:
-        open_folder(folder)
+    return keychain, _name(args.image)
+
+
+def _from_project(args):
+    """Everything as saved in the page; size options and --rim-colour given here win."""
+    if args.image is not None or args.colours:
+        raise ValueError("a project already holds the picture and its colours: leave those out")
+    request = read_project(args.project)
+    request["spec"] = {**request.get("spec", {}), **_size_overrides(args)}
+    if args.rim_colour is not None:
+        request["rim"] = args.rim_colour
+    print(f"project: {args.project}")
+    return designed_from_request(request), file_name(request.get("name") or args.project.stem)
 
 
 def _palette(args, image: Image.Image) -> list[Colour]:
@@ -68,13 +98,13 @@ def _name(image_path: Path) -> str:
 
 
 def _spec(args) -> KeychainSpec:
-    return KeychainSpec(
-        width_mm=args.width,
-        thickness_mm=args.thickness,
-        core_mm=args.core,
-        rim_mm=args.rim,
-        hole_mm=args.hole,
-    )
+    return KeychainSpec(**_size_overrides(args))
+
+
+def _size_overrides(args) -> dict[str, float]:
+    """The KeychainSpec fields of the size options that were given."""
+    given = {option: getattr(args, option) for option in SIZE_OPTIONS}
+    return {SIZE_OPTIONS[option]: value for option, value in given.items() if value is not None}
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -94,15 +124,22 @@ def _parser() -> argparse.ArgumentParser:
 def _add_make(commands) -> None:
     defaults = KeychainSpec()
     parser = commands.add_parser("make", help="3MF, STL and preview files for a keychain")
-    parser.add_argument("image", type=Path, help="PNG or JPEG; a transparent background works best")
+    parser.add_argument(
+        "image", type=Path, nargs="?", help="PNG or JPEG; a transparent background works best"
+    )
+    parser.add_argument(
+        "--project", type=Path, help="a .keychain.json saved by the web page, instead of IMAGE"
+    )
     parser.add_argument(
         "--colours", nargs="+", help="filaments as name=#rrggbb; found automatically if left out"
     )
-    parser.add_argument("--width", type=float, default=defaults.width_mm, help="widest side, mm")
-    parser.add_argument("--thickness", type=float, default=defaults.thickness_mm, help="total, mm")
-    parser.add_argument("--core", type=float, default=defaults.core_mm, help="middle layer, mm")
-    parser.add_argument("--rim", type=float, default=defaults.rim_mm, help="border around the picture, mm")
-    parser.add_argument("--hole", type=float, default=defaults.hole_mm, help="keyring hole diameter, mm")
+    parser.add_argument("--width", type=float, help=f"widest side, mm (default {defaults.width_mm})")
+    parser.add_argument("--thickness", type=float, help=f"total, mm (default {defaults.thickness_mm})")
+    parser.add_argument("--core", type=float, help=f"middle layer, mm (default {defaults.core_mm})")
+    parser.add_argument(
+        "--rim", type=float, help=f"border around the picture, mm (default {defaults.rim_mm})"
+    )
+    parser.add_argument("--hole", type=float, help=f"keyring hole diameter, mm (default {defaults.hole_mm})")
     parser.add_argument(
         "--rim-colour", help="name of the colour for the rim, the ring and the core; ink if left out"
     )

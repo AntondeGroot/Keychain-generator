@@ -17,6 +17,13 @@
       <fieldset>
         <legend>1. Picture</legend>
         <input type="file" id="picture" accept="image/png,image/jpeg,image/webp" aria-label="Picture file">
+        <div class="row">
+          <button type="button" id="save-project" disabled>Save project</button>
+          <label class="button">Open project
+            <input type="file" id="open-project" accept=".json,application/json" hidden>
+          </label>
+        </div>
+        <p class="hint">A project keeps the picture with the masks, lines, colours and settings.</p>
       </fieldset>
 
       <fieldset>
