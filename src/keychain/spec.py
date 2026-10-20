@@ -13,7 +13,14 @@ class KeychainSpec:
     hole_wall_mm: float = 2.5  # material around the hole
     min_line_mm: float = 0.4  # narrowest line the nozzle prints reliably
     gap_mm: float = 2.0  # openings in the drawing's outer line up to this wide are closed
+    smoothing_mm: float = 0.08  # evens out JPEG noise and pixel steps along colour edges
     simplify_mm: float = 0.02  # far below print resolution; keeps files small
+
+    def __post_init__(self) -> None:
+        if min(self.width_mm, self.thickness_mm, self.core_mm, self.rim_mm, self.hole_mm) <= 0:
+            raise ValueError("sizes must be larger than 0 mm")
+        if self.core_mm >= self.thickness_mm:
+            raise ValueError(f"the core ({self.core_mm} mm) must be thinner than the keychain")
 
     @property
     def face_mm(self) -> float:

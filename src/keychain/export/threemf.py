@@ -3,7 +3,6 @@
 Adapted from the Tock lid generator; here each part has its own height range."""
 
 from io import BytesIO
-from pathlib import Path
 from xml.sax.saxutils import quoteattr
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
@@ -32,10 +31,6 @@ MATERIALS_ID = 1
 FIRST_PART_ID = 2
 # The shapes are snapped to a 1e-4 mm grid before extruding, so more decimals add nothing.
 COORDINATE_DECIMALS = 4
-
-
-def write_3mf(path: Path, name: str, parts: list[Part]) -> None:
-    path.write_bytes(keychain_3mf(name, parts))
 
 
 def keychain_3mf(name: str, parts: list[Part]) -> bytes:

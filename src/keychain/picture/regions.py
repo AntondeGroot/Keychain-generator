@@ -9,12 +9,12 @@ from scipy import ndimage
 
 from keychain.picture.masks import closed, grown, opened
 from keychain.picture.nearest import darkest, nearest_colours
+from keychain.picture.painted import PaintedMask
 from keychain.picture.palette import Colour
 from keychain.spec import KeychainSpec
 
 OUTSIDE = -1
 TARGET_MM_PER_PX = 0.025  # fine enough that the traced edges show no pixel steps
-SMOOTHING_MM = 0.08  # evens out JPEG noise along colour edges
 OPAQUE = 128  # alpha from which a pixel belongs to the picture
 
 
@@ -29,15 +29,22 @@ class ColourMap:
         return self.labels != OUTSIDE
 
 
-def colour_map(image: Image.Image, palette: list[Colour], spec: KeychainSpec) -> ColourMap:
+def colour_map(
+    image: Image.Image, palette: list[Colour], spec: KeychainSpec, painted: PaintedMask | None = None
+) -> ColourMap:
     """The picture enlarged until a pixel is about 0.025 mm, with one palette colour per pixel."""
+    painted = painted or PaintedMask.nothing_painted(image.size)
     small = _rgba(image)
-    side_px = _widest_side_px(_drawn(nearest_colours(small[..., :3], palette), small))
+    side_px = _widest_side_px(painted.applied(_drawn(nearest_colours(small[..., :3], palette), small)))
     factor = max(1, math.ceil(spec.picture_mm / side_px / TARGET_MM_PER_PX))
     rough_mm_per_px = spec.picture_mm / (side_px * factor)
     big = _rgba(image.resize((image.width * factor, image.height * factor), Image.Resampling.BICUBIC))
-    labels = nearest_colours(big[..., :3], palette, SMOOTHING_MM / rough_mm_per_px)
-    inside = _picture_area(_drawn(labels, big), spec.gap_mm / 2 / rough_mm_per_px)
+    big_painted = painted.enlarged(factor)
+    labels = nearest_colours(big[..., :3], palette, spec.smoothing_mm / rough_mm_per_px)
+    # Painted background comes off only after finding what the drawing encloses: a stroke
+    # through an outline would otherwise open it, and the whole inside would count as outside.
+    drawn = _drawn(labels, big) | big_painted.keep
+    inside = _picture_area(drawn, spec.gap_mm / 2 / rough_mm_per_px) & ~big_painted.background
     # Closing gaps can make the picture a little larger, so the exact scale is measured after.
     mm_per_px = spec.picture_mm / _widest_side_px(inside)
     ink = darkest(palette)
