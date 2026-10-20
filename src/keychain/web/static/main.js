@@ -12,7 +12,12 @@ const state = { image: null, name: "keychain", hole: null };
 let previewTimer = null;
 let latestRequest = 0;
 
-const painter = new Painter(element("painter"), element("picture-canvas"), element("mask-canvas"), schedulePreview);
+const painter = new Painter(
+  element("painter"),
+  element("picture-canvas"),
+  { mask: element("mask-canvas"), detail: element("detail-canvas") },
+  schedulePreview,
+);
 const colours = new ColourList(element("colours"), schedulePreview);
 const preview = new Preview(element("preview"), placeRing);
 
@@ -80,7 +85,15 @@ async function download() {
 function designRequest() {
   const spec = {};
   for (const input of document.querySelectorAll("[data-spec]")) spec[input.dataset.spec] = Number(input.value);
-  return { image: state.image, mask: painter.maskDataUrl(), colours: colours.get(), spec, hole: state.hole, name: state.name };
+  return {
+    image: state.image,
+    mask: painter.dataUrl("mask"),
+    detail: painter.dataUrl("detail"),
+    colours: colours.get(),
+    spec,
+    hole: state.hole,
+    name: state.name,
+  };
 }
 
 /** POSTs JSON; on an error it shows the server's message and returns null. */

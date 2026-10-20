@@ -39,7 +39,9 @@ This opens a page on your own computer (http://127.0.0.1:8765, not reachable fro
 1. Choose a picture. Its main colours appear as a list; change, remove or add filaments, or
    use **Pick from picture** to add the colour you click on, such as a small red tongue.
 2. Paint a rough mask where the automatic background is wrong: **Background** (red) leaves
-   that part out, **Keep** (green) keeps it even if it looks like background.
+   that part out, **Keep** (green) keeps it even if it looks like background. Paint **Smooth**
+   (blue) where the curves should be calmer than the picture, such as a wobbly JPEG edge, and
+   **Detailed** (yellow) where they should follow it more closely.
 3. Set the size, and the **curve tolerance**: how far the curves may stray from the picture.
    Every edge is drawn as splines with as few points as fit within it, with sharp corners
    kept sharp and small round blobs such as eyes drawn as ellipses.

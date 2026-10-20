@@ -1,27 +1,36 @@
-// Painting a rough mask over the picture: red for background, green for what to keep.
-// The mask canvas has the picture's own size, so the server can lay it over pixel for pixel.
+// Painting rough masks over the picture, on two layers so an area can be both kept and detailed:
+// "mask" for background (red) and keep (green), "detail" for smooth (blue) and detailed (yellow).
+// The layers have the picture's own size, so the server can lay them over pixel for pixel.
 
-const PAINT = { background: "#ff0000", keep: "#00ff00" };
+const BRUSHES = {
+  background: { layer: "mask", colour: "#ff0000" },
+  keep: { layer: "mask", colour: "#00ff00" },
+  smooth: { layer: "detail", colour: "#0000ff" },
+  detailed: { layer: "detail", colour: "#ffff00" },
+};
+const ALL_LAYERS = ["mask", "detail"];
 
 export class Painter {
-  constructor(stack, pictureCanvas, maskCanvas, onPainted) {
+  /** layers: the canvases by layer name; the last one is on top and receives the pointer. */
+  constructor(stack, pictureCanvas, layers, onPainted) {
     this.stack = stack;
     this.picture = pictureCanvas;
-    this.mask = maskCanvas;
+    this.layers = layers;
     this.onPainted = onPainted;
     this.tool = "background";
     this.brushScreenPx = 20;
-    this.painted = false;
+    this.painted = new Set();
     this.onPick = null;
     this.last = null;
-    maskCanvas.addEventListener("pointerdown", (event) => this.#down(event));
-    maskCanvas.addEventListener("pointermove", (event) => this.#move(event));
-    maskCanvas.addEventListener("pointerup", () => this.#up());
-    maskCanvas.addEventListener("pointerleave", () => this.#up());
+    const top = Object.values(layers).at(-1);
+    top.addEventListener("pointerdown", (event) => this.#down(event));
+    top.addEventListener("pointermove", (event) => this.#move(event));
+    top.addEventListener("pointerup", () => this.#up());
+    top.addEventListener("pointerleave", () => this.#up());
   }
 
   load(image) {
-    for (const canvas of [this.picture, this.mask]) {
+    for (const canvas of [this.picture, ...Object.values(this.layers)]) {
       canvas.width = image.naturalWidth;
       canvas.height = image.naturalHeight;
     }
@@ -30,8 +39,10 @@ export class Painter {
   }
 
   clear() {
-    this.mask.getContext("2d").clearRect(0, 0, this.mask.width, this.mask.height);
-    this.painted = false;
+    for (const canvas of Object.values(this.layers)) {
+      canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+    }
+    this.painted.clear();
   }
 
   setTool(tool) {
@@ -48,9 +59,9 @@ export class Painter {
     this.stack.classList.toggle("picking", onPick !== null);
   }
 
-  /** The mask as a PNG data URL, or null when nothing was painted. */
-  maskDataUrl() {
-    return this.painted ? this.mask.toDataURL("image/png") : null;
+  /** One layer as a PNG data URL, or null when nothing was painted on it. */
+  dataUrl(layer) {
+    return this.painted.has(layer) ? this.layers[layer].toDataURL("image/png") : null;
   }
 
   #down(event) {
@@ -59,7 +70,7 @@ export class Painter {
       this.onPick(this.#colourAt(point));
       return;
     }
-    this.mask.setPointerCapture(event.pointerId);
+    event.target.setPointerCapture(event.pointerId);
     this.last = point;
     this.#stroke(point, point);
   }
@@ -74,22 +85,25 @@ export class Painter {
   #up() {
     if (!this.last) return;
     this.last = null;
-    this.painted = true;
     this.onPainted();
   }
 
   #stroke(from, to) {
-    const context = this.mask.getContext("2d");
     const erasing = this.tool === "erase";
-    context.globalCompositeOperation = erasing ? "destination-out" : "source-over";
-    context.strokeStyle = erasing ? "#000000" : PAINT[this.tool];
-    context.lineWidth = this.brushScreenPx * this.#canvasPxPerScreenPx();
-    context.lineCap = "round";
-    context.lineJoin = "round";
-    context.beginPath();
-    context.moveTo(from.x, from.y);
-    context.lineTo(to.x, to.y);
-    context.stroke();
+    const layers = erasing ? ALL_LAYERS : [BRUSHES[this.tool].layer];
+    for (const layer of layers) {
+      const context = this.layers[layer].getContext("2d");
+      context.globalCompositeOperation = erasing ? "destination-out" : "source-over";
+      context.strokeStyle = erasing ? "#000000" : BRUSHES[this.tool].colour;
+      context.lineWidth = this.brushScreenPx * this.#canvasPxPerScreenPx();
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.beginPath();
+      context.moveTo(from.x, from.y);
+      context.lineTo(to.x, to.y);
+      context.stroke();
+      if (!erasing) this.painted.add(layer);
+    }
   }
 
   #point(event) {
@@ -98,7 +112,7 @@ export class Painter {
   }
 
   #canvasPxPerScreenPx() {
-    return this.mask.width / this.mask.clientWidth;
+    return this.picture.width / this.picture.clientWidth;
   }
 
   #colourAt({ x, y }) {

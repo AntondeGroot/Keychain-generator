@@ -51,4 +51,4 @@ def _bottom_to_top(colour_map: ColourMap) -> list[int]:
 
 def _traced(mask, colour_map: ColourMap, spec: KeychainSpec) -> BaseGeometry:
     centre = centre_px(colour_map.inside)
-    return traced(mask, colour_map.mm_per_px, centre, spec)
+    return traced(mask, colour_map.mm_per_px, centre, spec, colour_map.tolerances_mm)

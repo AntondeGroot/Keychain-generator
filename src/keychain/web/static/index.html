@@ -34,8 +34,11 @@
         <div class="row" role="group" aria-label="Brush">
           <button type="button" class="tool" data-tool="background" aria-pressed="true">Background</button>
           <button type="button" class="tool" data-tool="keep" aria-pressed="false">Keep</button>
+          <button type="button" class="tool" data-tool="smooth" aria-pressed="false">Smooth</button>
+          <button type="button" class="tool" data-tool="detailed" aria-pressed="false">Detailed</button>
           <button type="button" class="tool" data-tool="erase" aria-pressed="false">Erase</button>
         </div>
+        <p class="hint">Smooth: calmer curves there. Detailed: follow the picture more closely there.</p>
         <label>Brush size <input type="range" id="brush" min="2" max="80" value="20"></label>
         <button type="button" id="clear-mask">Clear mask</button>
       </fieldset>
@@ -67,8 +70,10 @@
       <div class="stack" id="painter">
         <canvas id="picture-canvas"></canvas>
         <canvas id="mask-canvas"></canvas>
+        <canvas id="detail-canvas"></canvas>
       </div>
-      <p class="hint">Red: background, left out. Green: part of the keychain, even if it looks like background.</p>
+      <p class="hint">Red: background, left out. Green: part of the keychain, even if it looks like background.
+        Blue: smooth. Yellow: detailed.</p>
     </section>
 
     <section class="canvas-panel">

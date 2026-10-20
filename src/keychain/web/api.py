@@ -12,7 +12,7 @@ from keychain.design import Keychain, design_keychain
 from keychain.export.svg import face_svg
 from keychain.files import keychain_files, zipped
 from keychain.picture.detection import detect_colours
-from keychain.picture.painted import PaintedMask
+from keychain.picture.painted import DetailMask, PaintedMask
 from keychain.picture.palette import parse_colour, with_unique_names
 from keychain.spec import KeychainSpec
 
@@ -47,14 +47,15 @@ def download_action(request: dict) -> Response:
 
 def _designed(request: dict) -> Keychain:
     image = _image(request["image"])
-    mask = request.get("mask")
+    mask, detail_mask = request.get("mask"), request.get("detail")
     painted = PaintedMask.from_image(_image(mask), image.size) if mask else None
+    detail = DetailMask.from_image(_image(detail_mask), image.size) if detail_mask else None
     palette = with_unique_names([parse_colour(f"{c['name']}={c['hex']}") for c in request["colours"]])
     if not palette:
         raise ValueError("choose at least one colour")
     hole = request.get("hole")
     hole_centre = (float(hole[0]), float(hole[1])) if hole else None
-    return design_keychain(image, palette, _spec(request.get("spec", {})), painted, hole_centre)
+    return design_keychain(image, palette, _spec(request.get("spec", {})), painted, hole_centre, detail)
 
 
 def _spec(values: dict) -> KeychainSpec:
