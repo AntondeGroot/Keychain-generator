@@ -5,6 +5,7 @@ from collections import Counter
 from dataclasses import dataclass
 
 HEX_COLOUR = re.compile(r"#[0-9a-f]{6}")
+NAME = re.compile(r"[a-z0-9_-]+")  # names end up in file names, so nothing else
 # Rough names, so parts in the slicer read "front-blue" rather than "front-28b6e0".
 BASIC_NAMES = {
     "black": (0, 0, 0),
@@ -41,6 +42,8 @@ def parse_colour(text: str) -> Colour:
     hex_code = hex_code.lower()
     if not HEX_COLOUR.fullmatch(hex_code):
         raise ValueError(f"'{text}' is not a colour like '#f9bf92' or 'skin=#f9bf92'")
+    if name and not NAME.fullmatch(name):
+        raise ValueError(f"colour name '{name}' may only have lowercase letters, digits, '-' and '_'")
     return Colour(name or basic_name(hex_code), hex_code)
 
 

@@ -8,6 +8,7 @@ from keychain.picture.regions import ColourMap
 from keychain.picture.tracing import centre_px, traced
 from keychain.shape.islands import without_unprintable_islands
 from keychain.shape.layer import Layer
+from keychain.shape.outline import Outline
 from keychain.spec import KeychainSpec
 
 
@@ -16,20 +17,22 @@ def picture_shape(colour_map: ColourMap, spec: KeychainSpec) -> BaseGeometry:
 
 
 def face_layers(
-    colour_map: ColourMap, palette: list[Colour], outline: BaseGeometry, spec: KeychainSpec
+    colour_map: ColourMap, palette: list[Colour], outline: Outline, spec: KeychainSpec
 ) -> list[Layer]:
-    """Layers that tile the outline exactly; the ink layer, last, includes the rim and tab.
+    """Layers that tile the outline exactly; the ink layer, last, includes the rim and the ring.
 
     Ink takes whatever the other colours leave, so the hairline gaps where three traced
     colours meet become part of a line instead of a hole in the face."""
+    for_colours = outline.shape.difference(outline.ring)
     taken: BaseGeometry = Polygon()
     layers = []
     for index in _colours_used(colour_map):
-        shape = _traced(colour_map.labels == index, colour_map, spec).intersection(outline).difference(taken)
+        traced_area = _traced(colour_map.labels == index, colour_map, spec)
+        shape = traced_area.intersection(for_colours).difference(taken)
         layers.append(Layer(palette[index].name, shape, palette[index].hex))
         taken = taken.union(shape)
     ink = palette[colour_map.ink]
-    layers.append(Layer(ink.name, outline.difference(taken), ink.hex))
+    layers.append(Layer(ink.name, outline.shape.difference(taken), ink.hex))
     printable = without_unprintable_islands(layers, spec.min_line_mm)
     return [layer for layer in printable if not layer.shape.is_empty]
 

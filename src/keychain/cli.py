@@ -1,4 +1,4 @@
-"""Command line: find a picture's colours, or turn the picture into keychain files."""
+"""Command line: find a picture's colours, turn the picture into keychain files, or open the web page."""
 
 import argparse
 from pathlib import Path
@@ -10,6 +10,9 @@ from keychain.files import open_folder, write_keychain_files
 from keychain.picture.detection import detect_colours
 from keychain.picture.palette import Colour, parse_colour, with_unique_names
 from keychain.spec import KeychainSpec
+from keychain.web.server import serve
+
+DEFAULT_PORT = 8765  # 8000 and 8080 are often taken by other local servers
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -70,6 +73,10 @@ def _parser() -> argparse.ArgumentParser:
     found.add_argument("image", type=Path)
     found.set_defaults(command=colours)
     _add_make(commands)
+    web = commands.add_parser("web", help="the keychain page in your browser, to mask and place the ring")
+    web.add_argument("--port", type=int, default=DEFAULT_PORT)
+    web.add_argument("--no-browser", action="store_true", help="only start the server")
+    web.set_defaults(command=lambda args: serve(args.port, open_browser=not args.no_browser))
     return parser
 
 

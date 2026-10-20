@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Keychain generator</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="main.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Keychain generator</h1>
+    <p id="status" role="status">Choose a picture to start.</p>
+  </header>
+  <main>
+    <section class="controls">
+      <fieldset>
+        <legend>1. Picture</legend>
+        <input type="file" id="picture" accept="image/png,image/jpeg,image/webp" aria-label="Picture file">
+      </fieldset>
+
+      <fieldset>
+        <legend>2. Colours</legend>
+        <p class="hint">One per filament. The darkest is the ink: lines, rim and core.</p>
+        <ul id="colours"></ul>
+        <div class="row">
+          <button type="button" id="add-colour">Add colour</button>
+          <button type="button" id="pick-colour" aria-pressed="false">Pick from picture</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>3. Mask (rough is fine)</legend>
+        <div class="row" role="group" aria-label="Brush">
+          <button type="button" class="tool" data-tool="background" aria-pressed="true">Background</button>
+          <button type="button" class="tool" data-tool="keep" aria-pressed="false">Keep</button>
+          <button type="button" class="tool" data-tool="erase" aria-pressed="false">Erase</button>
+        </div>
+        <label>Brush size <input type="range" id="brush" min="2" max="80" value="20"></label>
+        <button type="button" id="clear-mask">Clear mask</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>4. Size and smoothing</legend>
+        <label>Width (mm) <input type="number" data-spec="width_mm" value="50" min="10" step="1"></label>
+        <label>Thickness (mm) <input type="number" data-spec="thickness_mm" value="3" min="1" step="0.1"></label>
+        <label>Core (mm) <input type="number" data-spec="core_mm" value="1.4" min="0.2" step="0.1"></label>
+        <label>Rim (mm) <input type="number" data-spec="rim_mm" value="1.5" min="0.4" step="0.1"></label>
+        <label>Hole (mm) <input type="number" data-spec="hole_mm" value="4" min="1" step="0.5"></label>
+        <label>Smoothing (mm)
+          <input type="range" data-spec="smoothing_mm" min="0.02" max="0.4" step="0.02" value="0.08">
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>5. Keyring</legend>
+        <button type="button" id="place-ring" aria-pressed="false">Place ring in preview</button>
+        <button type="button" id="auto-ring">Automatic position</button>
+      </fieldset>
+
+      <button type="button" id="download" class="primary" disabled>Download 3MF and STLs (zip)</button>
+    </section>
+
+    <section class="canvas-panel">
+      <h2>Picture and mask</h2>
+      <div class="stack" id="painter">
+        <canvas id="picture-canvas"></canvas>
+        <canvas id="mask-canvas"></canvas>
+      </div>
+      <p class="hint">Red: background, left out. Green: part of the keychain, even if it looks like background.</p>
+    </section>
+
+    <section class="canvas-panel">
+      <h2>Keychain front</h2>
+      <div id="preview" class="preview"></div>
+    </section>
+  </main>
+</body>
+</html>

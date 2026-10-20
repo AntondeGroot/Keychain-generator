@@ -1,7 +1,5 @@
 """A preview of the front face in millimetres, to check the colours before printing."""
 
-from pathlib import Path
-
 from shapely.geometry.base import BaseGeometry
 
 from keychain.shape.layer import Layer
@@ -23,11 +21,6 @@ def face_svg(face: list[Layer], outline: BaseGeometry) -> str:
         f'fill="{PAGE_COLOUR}"/>\n'
         f"{paths}</svg>\n"
     )
-
-
-def write_svg(path: Path, document: str) -> None:
-    """UTF-8 with Unix line endings, so a file is byte-identical on Windows, macOS and Linux."""
-    path.write_text(document, encoding="utf-8", newline="\n")
 
 
 def _layer_path(layer: Layer) -> str:

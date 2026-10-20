@@ -28,6 +28,28 @@ On Windows (PowerShell), activate with `.venv\Scripts\Activate.ps1` instead.
 
 ## Usage
 
+### In the browser
+
+```sh
+keychain web
+```
+
+This opens a page on your own computer (http://127.0.0.1:8765, not reachable from elsewhere):
+
+1. Choose a picture. Its main colours appear as a list; change, remove or add filaments, or
+   use **Pick from picture** to add the colour you click on, such as a small red tongue.
+2. Paint a rough mask where the automatic background is wrong: **Background** (red) leaves
+   that part out, **Keep** (green) keeps it even if it looks like background.
+3. Set the size, and the **smoothing** against blocky JPEG edges: the colour edges are smoothed
+   before tracing, so the colours still fit together exactly.
+4. **Place ring in preview**, then click where the keyring hole should go; a stem joins it to
+   the keychain if needed.
+5. **Download** a zip with the 3MF and the STLs.
+
+The preview updates by itself after every change; each one takes a few seconds.
+
+### On the command line
+
 First see which colours the picture has:
 
 ```sh
