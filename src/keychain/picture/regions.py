@@ -9,7 +9,7 @@ from scipy import ndimage
 
 from keychain.picture.masks import closed, grown, opened
 from keychain.picture.nearest import darkest, nearest_colours
-from keychain.picture.painted import PaintedMask
+from keychain.picture.painted import DetailMask, PaintedMask
 from keychain.picture.palette import Colour
 from keychain.spec import KeychainSpec
 
@@ -25,14 +25,24 @@ class ColourMap:
     labels: np.ndarray  # palette index per pixel, OUTSIDE around the picture
     mm_per_px: float
     ink: int  # palette index of the lines, which also colours the rim and the core
+    factor: int  # how many times the picture was enlarged
+    detail: DetailMask  # in the picture's own pixels
 
     @property
     def inside(self) -> np.ndarray:
         return self.labels != OUTSIDE
 
+    def tolerances_mm(self, rows: np.ndarray, columns: np.ndarray, tolerance_mm: float) -> np.ndarray:
+        """The curve tolerance at these pixels of the map, after the painted detail areas."""
+        return self.detail.tolerances(rows // self.factor, columns // self.factor, tolerance_mm)
+
 
 def colour_map(
-    image: Image.Image, palette: list[Colour], spec: KeychainSpec, painted: PaintedMask | None = None
+    image: Image.Image,
+    palette: list[Colour],
+    spec: KeychainSpec,
+    painted: PaintedMask | None = None,
+    detail: DetailMask | None = None,
 ) -> ColourMap:
     """The picture enlarged until a pixel is about 0.025 mm, with one palette colour per pixel."""
     painted = painted or PaintedMask.nothing_painted(image.size)
@@ -51,7 +61,8 @@ def colour_map(
     mm_per_px = spec.picture_mm / _widest_side_px(inside)
     ink = darkest(palette)
     labels = _with_printable_areas(labels, inside, ink, spec.min_line_mm / 2 / mm_per_px)
-    return ColourMap(np.where(inside, labels, OUTSIDE), mm_per_px, ink)
+    detail = detail or DetailMask.nothing_painted(image.size)
+    return ColourMap(np.where(inside, labels, OUTSIDE), mm_per_px, ink, factor, detail)
 
 
 def _rgba(image: Image.Image) -> np.ndarray:

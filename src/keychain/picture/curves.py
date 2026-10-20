@@ -4,7 +4,10 @@ An edge is cut at its sharp corners. Each piece in between becomes a cubic splin
 segments as keep it within a tolerance of the traced points: one or two for a simple curve,
 so four or five control points, and as many as a detailed edge such as curly fur needs, down
 to one per printed line width. Pixel steps and JPEG wobble disappear while corners stay sharp.
-A closed edge without corners that an ellipse fits, such as an eye, becomes that ellipse."""
+A closed edge without corners that an ellipse fits, such as an eye, becomes that ellipse.
+
+The tolerance may differ along the edge, so an area painted as detailed keeps more of its
+shape than one painted as smooth."""
 
 import math
 
@@ -26,23 +29,36 @@ DEGREE = 3
 MIN_POINTS = 2 * (DEGREE + 1)  # fewer traced points cannot carry a cubic spline
 
 
-def smooth_ring(points: np.ndarray, tolerance_mm: float) -> np.ndarray:
-    """A closed ring of points in mm, smoothed; the result is closed too (first point repeated)."""
-    ring = _without_repeats(points)
+def smooth_ring(points: np.ndarray, tolerance_mm: float | np.ndarray) -> np.ndarray:
+    """A closed ring of points in mm, smoothed; the result is closed too (first point repeated).
+
+    The tolerance is one number, or one per point."""
+    tolerances = np.broadcast_to(np.asarray(tolerance_mm, dtype=float), (len(points),))
+    moves = _moves(points)
+    ring, tolerances = points[moves], tolerances[moves]
     if len(ring) < MIN_POINTS:
         return points
     corners = _corners(ring)
     if not corners:
-        curve = _ellipse(ring, tolerance_mm)
-        return curve if curve is not None else _fitted(np.vstack([ring, ring[:1]]), tolerance_mm, closed=True)
-    ends = zip(corners, corners[1:] + corners[:1], strict=True)
-    curve = np.concatenate([_fitted(_piece(ring, start, end), tolerance_mm)[:-1] for start, end in ends])
+        return _closed_curve(ring, tolerances)
+    ends = list(zip(corners, corners[1:] + corners[:1], strict=True))
+    pieces = [_fitted(_piece(ring, start, end), _piece(tolerances, start, end))[:-1] for start, end in ends]
+    curve = np.concatenate(pieces)
     return np.vstack([curve, curve[:1]])
 
 
-def _without_repeats(points: np.ndarray) -> np.ndarray:
+def _closed_curve(ring: np.ndarray, tolerances: np.ndarray) -> np.ndarray:
+    """An edge without corners: the fitted ellipse if it is one, otherwise one closed spline."""
+    ellipse = _ellipse(ring, tolerances)
+    if ellipse is not None:
+        return ellipse
+    return _fitted(np.vstack([ring, ring[:1]]), np.append(tolerances, tolerances[0]), closed=True)
+
+
+def _moves(points: np.ndarray) -> np.ndarray:
+    """Which points differ from the next one; a repeated point has no direction."""
     steps = np.linalg.norm(np.diff(points, axis=0, append=points[:1]), axis=1)
-    return points[steps > 0]
+    return steps > 0
 
 
 def _corners(ring: np.ndarray) -> list[int]:
@@ -58,21 +74,21 @@ def _corners(ring: np.ndarray) -> list[int]:
 
 
 def _piece(ring: np.ndarray, start: int, end: int) -> np.ndarray:
-    """The points from one corner to the next, both included, going round the ring."""
+    """The values from one corner to the next, both included, going round the ring."""
     if end > start:
         return ring[start : end + 1]
-    return np.vstack([ring[start:], ring[: end + 1]])
+    return np.concatenate([ring[start:], ring[: end + 1]])
 
 
-def _fitted(points: np.ndarray, tolerance_mm: float, closed: bool = False) -> np.ndarray:
-    """The spline with the fewest segments that stays within the tolerance of the points."""
+def _fitted(points: np.ndarray, tolerances: np.ndarray, closed: bool = False) -> np.ndarray:
+    """The spline with the fewest segments that stays within each point's tolerance."""
     if len(points) < MIN_POINTS:
         return points
     along = _arc_length_fraction(points)
     most = max(1, int(_length(points) / SHORTEST_SEGMENT_MM))
     segments = 1
     curve = _spline_curve(points, along, segments, closed)
-    while _largest_gap(points, curve) > tolerance_mm and segments < most:
+    while not _fits(points, tolerances, curve) and segments < most:
         segments = min(most, math.ceil(segments * GROWTH))
         curve = _spline_curve(points, along, segments, closed)
     if not closed:
@@ -115,20 +131,20 @@ def _arc_length_fraction(points: np.ndarray) -> np.ndarray:
     return distance / distance[-1]
 
 
-def _largest_gap(points: np.ndarray, curve: np.ndarray) -> float:
+def _fits(points: np.ndarray, tolerances: np.ndarray, curve: np.ndarray) -> bool:
     distances, _ = cKDTree(curve).query(points)
-    return float(np.max(distances))
+    return bool(np.all(distances <= tolerances))
 
 
-def _ellipse(ring: np.ndarray, tolerance_mm: float) -> np.ndarray | None:
-    """The fitted ellipse if the ring is small and every point lies within the tolerance of it."""
+def _ellipse(ring: np.ndarray, tolerances: np.ndarray) -> np.ndarray | None:
+    """The fitted ellipse if the ring is small and every point lies within its tolerance of it."""
     if _area(ring) > ELLIPSE_MAX_AREA_MM2:
         return None
     try:
         model = EllipseModel.from_estimate(ring)
     except (TypeError, ValueError):  # the fit breaks down on shapes far from an ellipse
         return None
-    if not model or np.max(np.abs(model.residuals(ring))) > tolerance_mm:
+    if not model or np.any(np.abs(model.residuals(ring)) > tolerances):
         return None
     return model.predict_xy(np.linspace(0, 2 * np.pi, _sample_count(ring)))
 

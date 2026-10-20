@@ -65,9 +65,9 @@ def serve(port: int, open_browser: bool) -> None:
     server = server_on_free_port(port)
     actual_port = server.server_address[1]
     if actual_port != port:
-        print(f"Port {port} is in use, so the page uses port {actual_port}.")
+        print(f"Port {port} is in use, so the page uses port {actual_port}.", flush=True)
     url = f"http://{HOST}:{actual_port}/"
-    print(f"Keychain page: {url}  (Ctrl-C to stop)")
+    print(f"Keychain page: {url}  (Ctrl-C to stop)", flush=True)
     if open_browser:
         webbrowser.open(url)
     try:

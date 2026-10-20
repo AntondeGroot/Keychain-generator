@@ -100,8 +100,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 .stack { position: relative; background: var(--checker); }
 .stack canvas { display: block; width: 100%; height: auto; }
-#mask-canvas { position: absolute; inset: 0; opacity: 0.45; cursor: crosshair; touch-action: none; }
-.stack.picking #mask-canvas { cursor: copy; }
+#mask-canvas, #detail-canvas { position: absolute; inset: 0; opacity: 0.45; pointer-events: none; }
+#detail-canvas { pointer-events: auto; cursor: crosshair; touch-action: none; }
+.stack.picking #detail-canvas { cursor: copy; }
 
 .preview { background: var(--checker); min-height: 200px; }
 .preview svg { display: block; width: 100%; height: auto; }
