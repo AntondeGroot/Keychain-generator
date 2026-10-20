@@ -1,4 +1,5 @@
 import pytest
+import shapely
 from PIL import Image, ImageDraw
 from shapely.geometry import Point
 
@@ -61,3 +62,25 @@ def test_a_colour_left_out_of_the_palette_goes_to_the_nearest_colour():
 
     assert blushed["skin"].contains(Point(0, 0))  # the blush sits in the middle of the picture
     assert blushed["skin"].area == pytest.approx(plain["skin"].area, rel=0.01)
+
+
+def test_a_narrow_strip_joining_two_areas_of_a_colour_is_thickened_not_lost():
+    # Two patches of hair joined by a strip of 1 pixel, about 0.24 mm on the keychain, like
+    # the hair along Tintin's hairline: too narrow to print, but part of the drawing.
+    palette = [
+        parse_colour(text) for text in ("white=#ffffff", "black=#000000", "skin=#fabe93", "orange=#de7e31")
+    ]
+    image = Image.new("RGB", (200, 200), "white")
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((20, 50, 180, 150), fill="#fabe93", outline="black", width=6)
+    draw.ellipse((40, 80, 80, 120), fill="#de7e31")
+    draw.ellipse((120, 80, 160, 120), fill="#de7e31")
+    draw.line((70, 100, 130, 100), fill="#de7e31", width=1)
+
+    spec = KeychainSpec()
+    orange = {layer.name: layer.shape for layer in design_keychain(image, palette, spec).face}["orange"]
+
+    just_under_half_a_line = spec.min_line_mm / 2 - 0.01
+    printable_part = orange.buffer(-just_under_half_a_line).buffer(just_under_half_a_line)
+    assert shapely.get_num_geometries(orange) == 1  # the strip still joins the two patches
+    assert shapely.get_num_geometries(printable_part) == 1  # and is wide enough to print all along

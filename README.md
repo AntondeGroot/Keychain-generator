@@ -40,8 +40,9 @@ This opens a page on your own computer (http://127.0.0.1:8765, not reachable fro
    use **Pick from picture** to add the colour you click on, such as a small red tongue.
 2. Paint a rough mask where the automatic background is wrong: **Background** (red) leaves
    that part out, **Keep** (green) keeps it even if it looks like background.
-3. Set the size, and the **smoothing** against blocky JPEG edges: the colour edges are smoothed
-   before tracing, so the colours still fit together exactly.
+3. Set the size, and the **curve tolerance**: how far the curves may stray from the picture.
+   Every edge is drawn as splines with as few points as fit within it, with sharp corners
+   kept sharp and small round blobs such as eyes drawn as ellipses.
 4. **Place ring in preview**, then click where the keyring hole should go; a stem joins it to
    the keychain if needed.
 5. **Download** a zip with the 3MF and the STLs.

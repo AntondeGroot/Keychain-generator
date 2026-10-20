@@ -16,6 +16,8 @@ from keychain.spec import KeychainSpec
 OUTSIDE = -1
 TARGET_MM_PER_PX = 0.025  # fine enough that the traced edges show no pixel steps
 OPAQUE = 128  # alpha from which a pixel belongs to the picture
+SPECK_DOT_LINES = 1.5  # a piece smaller than a dot this many lines across is a speck, not a detail
+STRIP_LINES = 2  # a narrow part covering a square this many lines wide is a strip, not a tip
 
 
 @dataclass(frozen=True)
@@ -78,12 +80,45 @@ def _picture_area(drawn: np.ndarray, gap_radius_px: float) -> np.ndarray:
 
 
 def _with_printable_areas(labels: np.ndarray, inside: np.ndarray, ink: int, radius_px: float) -> np.ndarray:
-    """Thickens ink lines thinner than a printed line, and turns too-thin colour areas into ink."""
+    """Every colour area at least a printed line wide, the way one would fix it by hand.
+
+    Specks, and colour areas that are narrow everywhere (blends along an edge, such as a
+    skin-coloured fringe where orange hair fades into white), go to the colours around them.
+    Narrow strips of an area that is wide elsewhere, such as hair along a hairline, are
+    thickened instead of lost. A colour never grows over ink, so the lines stay whole."""
     labels = labels.copy()
-    is_ink = (labels == ink) & inside
-    thin_ink = is_ink & ~opened(is_ink, radius_px)
-    labels[grown(thin_ink, radius_px / 2) & inside] = ink
-    for index in set(np.unique(labels[inside]).tolist()) - {ink}:
+    colours = sorted(set(np.unique(labels[inside]).tolist()) - {ink})
+    for index in [ink, *colours]:
         area = (labels == index) & inside
-        labels[area & ~opened(area, radius_px)] = ink
+        pieces, _ = ndimage.label(area)
+        wide = np.isin(pieces, np.unique(pieces[opened(area, radius_px)]))
+        loose = _specks(pieces, radius_px) | (area & ~wide if index != ink else False)
+        _give_to_neighbours(labels, loose, inside)
+        strips = _strips(area & ~loose & ~opened(area, radius_px), radius_px)
+        may_take = inside if index == ink else inside & (labels != ink)
+        labels[grown(strips, radius_px) & may_take] = index
     return labels
+
+
+def _specks(pieces: np.ndarray, radius_px: float) -> np.ndarray:
+    """Pieces smaller than a printable dot."""
+    sizes = np.bincount(pieces.ravel())
+    too_small = np.nonzero(sizes < math.pi * (SPECK_DOT_LINES * radius_px) ** 2)[0]
+    return np.isin(pieces, too_small) & (pieces > 0)
+
+
+def _strips(narrow: np.ndarray, radius_px: float) -> np.ndarray:
+    """Narrow parts long enough to be a strip, not the tip of a line or a sharp corner."""
+    pieces, _ = ndimage.label(narrow)
+    sizes = np.bincount(pieces.ravel())
+    long_enough = np.nonzero(sizes >= (STRIP_LINES * 2 * radius_px) ** 2)[0]
+    return np.isin(pieces, long_enough) & (pieces > 0)
+
+
+def _give_to_neighbours(labels: np.ndarray, loose: np.ndarray, inside: np.ndarray) -> None:
+    """Each loose pixel takes the colour of the nearest pixel that is not loose."""
+    keeping = inside & ~loose
+    if not loose.any() or not keeping.any():
+        return
+    _, (rows, columns) = ndimage.distance_transform_edt(~keeping, return_indices=True)
+    labels[loose] = labels[rows[loose], columns[loose]]

@@ -17,7 +17,7 @@ from keychain.picture.palette import parse_colour, with_unique_names
 from keychain.spec import KeychainSpec
 
 MAX_PICTURE_PX = 4000  # larger pictures take minutes, and far more detail than 5 cm can show
-SPEC_FIELDS = ("width_mm", "thickness_mm", "core_mm", "rim_mm", "hole_mm", "smoothing_mm")
+SPEC_FIELDS = ("width_mm", "thickness_mm", "core_mm", "rim_mm", "hole_mm", "curve_tolerance_mm")
 JSON = "application/json"
 
 

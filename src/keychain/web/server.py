@@ -1,6 +1,8 @@
 """A small web server for the keychain page. It only listens on this computer."""
 
+import errno
 import json
+import sys
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
@@ -14,6 +16,8 @@ STATIC = files("keychain.web") / "static"
 CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css"}
 ACTIONS = {"/api/colours": colours_action, "/api/preview": preview_action, "/api/download": download_action}
 BAD_REQUEST = (ValueError, KeyError, TypeError, OSError, UnidentifiedImageError)
+PORT_TRIES = 20  # the asked port and the ones after it; then the system picks any free one
+ANY_FREE_PORT = 0
 
 
 class KeychainHandler(BaseHTTPRequestHandler):
@@ -51,9 +55,18 @@ class KeychainHandler(BaseHTTPRequestHandler):
         """Quiet: a line for every request would bury the address printed at the start."""
 
 
+class KeychainServer(ThreadingHTTPServer):
+    # Address reuse lets a restarted server take its port back at once on macOS and Linux. On
+    # Windows it means something else: a second server may take a port that is in use.
+    allow_reuse_address = sys.platform != "win32"
+
+
 def serve(port: int, open_browser: bool) -> None:
-    server = ThreadingHTTPServer((HOST, port), KeychainHandler)
-    url = f"http://{HOST}:{port}/"
+    server = server_on_free_port(port)
+    actual_port = server.server_address[1]
+    if actual_port != port:
+        print(f"Port {port} is in use, so the page uses port {actual_port}.")
+    url = f"http://{HOST}:{actual_port}/"
     print(f"Keychain page: {url}  (Ctrl-C to stop)")
     if open_browser:
         webbrowser.open(url)
@@ -63,6 +76,17 @@ def serve(port: int, open_browser: bool) -> None:
         print()
     finally:
         server.server_close()
+
+
+def server_on_free_port(port: int) -> KeychainServer:
+    """A server on the asked port, or on the first free one after it."""
+    for candidate in [*range(port, port + PORT_TRIES), ANY_FREE_PORT]:
+        try:
+            return KeychainServer((HOST, candidate), KeychainHandler)
+        except OSError as error:
+            if error.errno != errno.EADDRINUSE:
+                raise
+    raise OSError(f"no free port from {port} on")  # unreachable: the system always has one
 
 
 def _static_names() -> set[str]:
