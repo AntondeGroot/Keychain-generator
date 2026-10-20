@@ -34,18 +34,19 @@ def colours_action(request: dict) -> Response:
 
 
 def preview_action(request: dict) -> Response:
-    keychain = _designed(request)
+    keychain = designed_from_request(request)
     svg = face_svg(keychain.face, keychain.outline.shape)
     return _json({"svg": svg, "hole": list(keychain.outline.hole_centre)})
 
 
 def download_action(request: dict) -> Response:
-    name = _file_name(request.get("name", ""))
-    archive = zipped(keychain_files(name, _designed(request)), name)
+    name = file_name(request.get("name", ""))
+    archive = zipped(keychain_files(name, designed_from_request(request)), name)
     return Response("application/zip", archive, f"{name}.zip")
 
 
-def _designed(request: dict) -> Keychain:
+def designed_from_request(request: dict) -> Keychain:
+    """The keychain for a request from the page, or for a project file it saved."""
     image = _image(request["image"])
     palette = _palette(request)
     hole = request.get("hole")
@@ -104,7 +105,8 @@ def _image(data_url: str) -> Image.Image:
     return image
 
 
-def _file_name(text: str) -> str:
+def file_name(text: str) -> str:
+    """A name safe for files: lowercase letters, digits, dashes and underscores."""
     return re.sub(r"[^a-z0-9_-]+", "-", text.lower()).strip("-") or "keychain"
 
 

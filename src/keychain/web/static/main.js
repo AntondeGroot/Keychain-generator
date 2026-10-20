@@ -3,6 +3,8 @@
 import { ColourList } from "./colours.js";
 import { Painter } from "./painter.js";
 import { Preview } from "./preview.js";
+import { asDataUrl, loadedImage, projectBlob, readProject, saveFile } from "./project.js";
+import { call, isBusy, setStatus, whenBusyChanges } from "./server.js";
 
 const PREVIEW_DELAY_MS = 600; // waits for a pause in typing or painting before asking the server
 const NEW_COLOUR = "#888888";
@@ -11,7 +13,6 @@ const element = (id) => document.getElementById(id);
 const state = { image: null, name: "keychain", hole: null };
 let previewTimer = null;
 let latestRequest = 0;
-let requestsInFlight = 0;
 
 const painter = new Painter(
   element("painter"),
@@ -23,7 +24,7 @@ const painter = new Painter(
 const colours = new ColourList(element("colours"), coloursChanged, choosePaintColour);
 const preview = new Preview(element("preview"), placeRing);
 
-element("picture").addEventListener("change", (event) => loadPicture(event.target.files[0]));
+element("picture").addEventListener("change", (event) => fromFileInput(event.target, loadPicture));
 element("add-colour").addEventListener("click", () => colours.add(NEW_COLOUR));
 element("pick-colour").addEventListener("click", togglePicking);
 element("clear-mask").addEventListener("click", () => {
@@ -34,19 +35,26 @@ element("brush").addEventListener("input", (event) => painter.setBrushSize(Numbe
 element("place-ring").addEventListener("click", () => setPlacing(!preview.placing));
 element("auto-ring").addEventListener("click", () => placeRing(null));
 element("download").addEventListener("click", download);
+element("save-project").addEventListener("click", () => saveFile(projectBlob(designRequest()), `${state.name}.keychain.json`));
+element("open-project").addEventListener("change", (event) => fromFileInput(event.target, openProject));
 for (const input of document.querySelectorAll("[data-spec]")) input.addEventListener("change", schedulePreview);
 element("rim").addEventListener("change", schedulePreview);
 for (const button of document.querySelectorAll(".tool")) button.addEventListener("click", () => chooseTool(button));
+whenBusyChanges(updateDownloadButton);
+
+/** Reads the chosen file, then empties the input so choosing the same file again still works. */
+async function fromFileInput(input, read) {
+  const [file] = input.files;
+  input.value = "";
+  if (file) await read(file);
+}
 
 async function loadPicture(file) {
-  if (!file) return;
   state.image = await asDataUrl(file);
   state.name = file.name.replace(/\.[^.]+$/, "");
   state.hole = null;
-  const image = new Image();
-  image.src = state.image;
-  await image.decode();
-  painter.load(image);
+  painter.load(await loadedImage(state.image));
+  element("save-project").disabled = false;
   const found = await call("/api/colours", { image: state.image }, "Finding the colours…");
   if (!found) return;
   colours.set((await found.json()).colours);
@@ -73,13 +81,27 @@ async function updatePreview() {
 async function download() {
   const response = await call("/api/download", designRequest(), "Making the 3MF and STL files…");
   if (!response) return;
-  const link = Object.assign(document.createElement("a"), {
-    href: URL.createObjectURL(await response.blob()),
-    download: `${state.name}.zip`,
-  });
-  link.click();
-  URL.revokeObjectURL(link.href);
+  saveFile(await response.blob(), `${state.name}.zip`);
   setStatus("Downloaded. Open the 3MF in your slicer and give each part its filament.");
+}
+
+/** Everything as it was saved: picture, paint, lines, colours, sizes, rim and ring. */
+async function openProject(file) {
+  try {
+    const project = await readProject(file);
+    Object.assign(state, { image: project.image, name: project.name, hole: project.hole ?? null });
+    painter.load(await loadedImage(project.image));
+    await painter.restore({ mask: project.mask, detail: project.detail, paint: project.paint }, project.connections ?? []);
+    colours.set(project.colours);
+    for (const input of document.querySelectorAll("[data-spec]")) {
+      if (input.dataset.spec in project.spec) input.value = project.spec[input.dataset.spec];
+    }
+    coloursChanged();
+    element("rim").value = project.rim ?? "";
+    element("save-project").disabled = false;
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
 }
 
 function designRequest() {
@@ -99,38 +121,10 @@ function designRequest() {
   };
 }
 
-/** POSTs JSON with the spinner showing; on an error it shows the server's message and returns null. */
-async function call(path, body, waitingText) {
-  showWorking(waitingText, +1);
-  try {
-    const response = await fetch(path, { method: "POST", body: JSON.stringify(body) });
-    if (response.ok) return response;
-    setStatus((await response.json()).error, "error");
-  } catch (error) {
-    setStatus(`The server did not answer; is 'keychain web' still running? (${error.message})`, "error");
-  } finally {
-    showWorking(waitingText, -1);
-  }
-  return null;
-}
-
-/** The spinner stays until every request has answered, also ones a newer change made stale. */
-function showWorking(text, change) {
-  requestsInFlight += change;
-  const working = requestsInFlight > 0;
-  element("working").hidden = !working;
-  element("preview").setAttribute("aria-busy", String(working));
-  updateDownloadButton();
-  if (change > 0) {
-    element("working-text").textContent = text;
-    setStatus(text, "busy");
-  }
-}
-
 /** Downloading needs a preview to download, and waits while the server is busy. */
 function updateDownloadButton() {
   const hasPreview = element("preview").querySelector("svg") !== null;
-  element("download").disabled = requestsInFlight > 0 || !hasPreview;
+  element("download").disabled = isBusy() || !hasPreview;
 }
 
 function placeRing(hole) {
@@ -170,19 +164,4 @@ function coloursChanged() {
   const choices = colours.names().map((name) => new Option(name, name, false, name === chosen));
   rim.replaceChildren(new Option("ink (darkest)", ""), ...choices);
   schedulePreview();
-}
-
-function setStatus(text, kind = "") {
-  const status = element("status");
-  status.textContent = text;
-  status.className = kind;
-}
-
-function asDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
 }
