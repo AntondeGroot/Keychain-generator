@@ -35,7 +35,7 @@ def make(args) -> None:
     image = Image.open(args.image)
     palette = _palette(args, image)
     print(f"colours: {_as_arguments(palette)}")
-    keychain = design_keychain(image, palette, _spec(args))
+    keychain = design_keychain(image, palette, _spec(args), rim_colour=_rim_colour(args, palette))
     folder = write_keychain_files(_name(args.image), keychain, args.out)
     print(folder.resolve())
     if args.open:
@@ -46,6 +46,17 @@ def _palette(args, image: Image.Image) -> list[Colour]:
     if args.colours:
         return with_unique_names([parse_colour(text) for text in args.colours])
     return detect_colours(image)
+
+
+def _rim_colour(args, palette: list[Colour]) -> Colour | None:
+    if args.rim_colour is None:
+        return None
+    named = [colour for colour in palette if colour.name == args.rim_colour]
+    if not named:
+        raise ValueError(
+            f"--rim-colour '{args.rim_colour}' is not one of the colours: {_as_arguments(palette)}"
+        )
+    return named[0]
 
 
 def _as_arguments(palette: list[Colour]) -> str:
@@ -89,9 +100,12 @@ def _add_make(commands) -> None:
     )
     parser.add_argument("--width", type=float, default=defaults.width_mm, help="widest side, mm")
     parser.add_argument("--thickness", type=float, default=defaults.thickness_mm, help="total, mm")
-    parser.add_argument("--core", type=float, default=defaults.core_mm, help="ink-coloured middle layer, mm")
+    parser.add_argument("--core", type=float, default=defaults.core_mm, help="middle layer, mm")
     parser.add_argument("--rim", type=float, default=defaults.rim_mm, help="border around the picture, mm")
     parser.add_argument("--hole", type=float, default=defaults.hole_mm, help="keyring hole diameter, mm")
+    parser.add_argument(
+        "--rim-colour", help="name of the colour for the rim, the ring and the core; ink if left out"
+    )
     parser.add_argument("--out", type=Path, default=Path("out"))
     parser.add_argument("--open", action="store_true", help="show the output folder when done")
     parser.set_defaults(command=make)

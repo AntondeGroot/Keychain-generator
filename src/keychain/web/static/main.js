@@ -11,14 +11,16 @@ const element = (id) => document.getElementById(id);
 const state = { image: null, name: "keychain", hole: null };
 let previewTimer = null;
 let latestRequest = 0;
+let requestsInFlight = 0;
 
 const painter = new Painter(
   element("painter"),
   element("picture-canvas"),
-  { mask: element("mask-canvas"), detail: element("detail-canvas") },
+  { paint: element("paint-canvas"), mask: element("mask-canvas"), detail: element("detail-canvas") },
+  element("lines-canvas"),
   schedulePreview,
 );
-const colours = new ColourList(element("colours"), schedulePreview);
+const colours = new ColourList(element("colours"), coloursChanged, choosePaintColour);
 const preview = new Preview(element("preview"), placeRing);
 
 element("picture").addEventListener("change", (event) => loadPicture(event.target.files[0]));
@@ -33,6 +35,7 @@ element("place-ring").addEventListener("click", () => setPlacing(!preview.placin
 element("auto-ring").addEventListener("click", () => placeRing(null));
 element("download").addEventListener("click", download);
 for (const input of document.querySelectorAll("[data-spec]")) input.addEventListener("change", schedulePreview);
+element("rim").addEventListener("change", schedulePreview);
 for (const button of document.querySelectorAll(".tool")) button.addEventListener("click", () => chooseTool(button));
 
 async function loadPicture(file) {
@@ -44,11 +47,10 @@ async function loadPicture(file) {
   image.src = state.image;
   await image.decode();
   painter.load(image);
-  setStatus("Finding the colours…", "busy");
-  const found = await call("/api/colours", { image: state.image });
+  const found = await call("/api/colours", { image: state.image }, "Finding the colours…");
   if (!found) return;
   colours.set((await found.json()).colours);
-  schedulePreview();
+  coloursChanged();
 }
 
 function schedulePreview() {
@@ -59,19 +61,17 @@ function schedulePreview() {
 
 async function updatePreview() {
   const request = ++latestRequest;
-  setStatus("Making the keychain…", "busy");
-  const response = await call("/api/preview", designRequest());
+  const response = await call("/api/preview", designRequest(), "Making the keychain…");
   if (!response || request !== latestRequest) return; // a newer change is already on its way
   const { svg, hole } = await response.json();
   preview.show(svg);
-  element("download").disabled = false;
+  updateDownloadButton();
   const ring = state.hole ? "where you placed it" : "placed automatically";
   setStatus(`Ready. Keyring ${ring} at ${hole.map((mm) => mm.toFixed(1)).join(", ")} mm.`);
 }
 
 async function download() {
-  setStatus("Making the files…", "busy");
-  const response = await call("/api/download", designRequest());
+  const response = await call("/api/download", designRequest(), "Making the 3MF and STL files…");
   if (!response) return;
   const link = Object.assign(document.createElement("a"), {
     href: URL.createObjectURL(await response.blob()),
@@ -89,6 +89,9 @@ function designRequest() {
     image: state.image,
     mask: painter.dataUrl("mask"),
     detail: painter.dataUrl("detail"),
+    paint: painter.dataUrl("paint"),
+    connections: painter.connections,
+    rim: element("rim").value || null,
     colours: colours.get(),
     spec,
     hole: state.hole,
@@ -96,16 +99,38 @@ function designRequest() {
   };
 }
 
-/** POSTs JSON; on an error it shows the server's message and returns null. */
-async function call(path, body) {
+/** POSTs JSON with the spinner showing; on an error it shows the server's message and returns null. */
+async function call(path, body, waitingText) {
+  showWorking(waitingText, +1);
   try {
     const response = await fetch(path, { method: "POST", body: JSON.stringify(body) });
     if (response.ok) return response;
     setStatus((await response.json()).error, "error");
   } catch (error) {
     setStatus(`The server did not answer; is 'keychain web' still running? (${error.message})`, "error");
+  } finally {
+    showWorking(waitingText, -1);
   }
   return null;
+}
+
+/** The spinner stays until every request has answered, also ones a newer change made stale. */
+function showWorking(text, change) {
+  requestsInFlight += change;
+  const working = requestsInFlight > 0;
+  element("working").hidden = !working;
+  element("preview").setAttribute("aria-busy", String(working));
+  updateDownloadButton();
+  if (change > 0) {
+    element("working-text").textContent = text;
+    setStatus(text, "busy");
+  }
+}
+
+/** Downloading needs a preview to download, and waits while the server is busy. */
+function updateDownloadButton() {
+  const hasPreview = element("preview").querySelector("svg") !== null;
+  element("download").disabled = requestsInFlight > 0 || !hasPreview;
 }
 
 function placeRing(hole) {
@@ -131,6 +156,20 @@ function togglePicking() {
 function chooseTool(chosen) {
   for (const button of document.querySelectorAll(".tool")) button.setAttribute("aria-pressed", String(button === chosen));
   painter.setTool(chosen.dataset.tool);
+}
+
+function choosePaintColour(button, hex) {
+  painter.setPaintColour(hex);
+  chooseTool(button);
+}
+
+/** The rim can take any named colour; the list follows the colours, keeping the choice. */
+function coloursChanged() {
+  const rim = element("rim");
+  const chosen = rim.value;
+  const choices = colours.names().map((name) => new Option(name, name, false, name === chosen));
+  rim.replaceChildren(new Option("ink (darkest)", ""), ...choices);
+  schedulePreview();
 }
 
 function setStatus(text, kind = "") {

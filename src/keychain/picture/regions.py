@@ -7,9 +7,11 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
+from keychain.picture.blends import without_edge_blends
+from keychain.picture.connections import with_connections
 from keychain.picture.masks import closed, grown, opened
 from keychain.picture.nearest import darkest, nearest_colours
-from keychain.picture.painted import DetailMask, PaintedMask
+from keychain.picture.painted import DetailMask, Painting
 from keychain.picture.palette import Colour
 from keychain.spec import KeychainSpec
 
@@ -38,44 +40,75 @@ class ColourMap:
 
 
 def colour_map(
-    image: Image.Image,
-    palette: list[Colour],
-    spec: KeychainSpec,
-    painted: PaintedMask | None = None,
-    detail: DetailMask | None = None,
+    image: Image.Image, palette: list[Colour], spec: KeychainSpec, painting: Painting | None = None
 ) -> ColourMap:
     """The picture enlarged until a pixel is about 0.025 mm, with one palette colour per pixel."""
-    painted = painted or PaintedMask.nothing_painted(image.size)
-    small = _rgba(image)
-    side_px = _widest_side_px(painted.applied(_drawn(nearest_colours(small[..., :3], palette), small)))
-    factor = max(1, math.ceil(spec.picture_mm / side_px / TARGET_MM_PER_PX))
-    rough_mm_per_px = spec.picture_mm / (side_px * factor)
+    painting = painting or Painting.nothing_painted(image.size)
+    image = painting.colours.over(image)
+    factor, rough_mm_per_px = _enlargement(image, palette, spec, painting)
     big = _rgba(image.resize((image.width * factor, image.height * factor), Image.Resampling.BICUBIC))
-    big_painted = painted.enlarged(factor)
     labels = nearest_colours(big[..., :3], palette, spec.smoothing_mm / rough_mm_per_px)
-    # Painted background comes off only after finding what the drawing encloses: a stroke
-    # through an outline would otherwise open it, and the whole inside would count as outside.
-    drawn = _drawn(labels, big) | big_painted.keep
-    inside = _picture_area(drawn, spec.gap_mm / 2 / rough_mm_per_px) & ~big_painted.background
+    inside = _inside(labels, big, painting, factor, spec, rough_mm_per_px)
     # Closing gaps can make the picture a little larger, so the exact scale is measured after.
     mm_per_px = spec.picture_mm / _widest_side_px(inside)
     ink = darkest(palette)
-    labels = _with_printable_areas(labels, inside, ink, spec.min_line_mm / 2 / mm_per_px)
-    detail = detail or DetailMask.nothing_painted(image.size)
-    return ColourMap(np.where(inside, labels, OUTSIDE), mm_per_px, ink, factor, detail)
+    line_radius_px = spec.min_line_mm / 2 / mm_per_px
+    labels = without_edge_blends(labels, inside, palette, line_radius_px)
+    labels, inside = with_connections(labels, inside, painting.connections, factor, ink, 2 * line_radius_px)
+    labels = _with_printable_areas(labels, inside, ink, line_radius_px)
+    return ColourMap(np.where(inside, labels, OUTSIDE), mm_per_px, ink, factor, painting.detail)
+
+
+def _enlargement(
+    image: Image.Image, palette: list[Colour], spec: KeychainSpec, painting: Painting
+) -> tuple[int, float]:
+    """How many times to enlarge the picture, and roughly how many mm a pixel then is."""
+    small = _rgba(image)
+    labels = nearest_colours(small[..., :3], palette)
+    side_px = _widest_side_px(painting.mask.applied(_drawn(labels, small, _background(labels, small))))
+    factor = max(1, math.ceil(spec.picture_mm / side_px / TARGET_MM_PER_PX))
+    return factor, spec.picture_mm / (side_px * factor)
+
+
+def _inside(
+    labels: np.ndarray,
+    rgba: np.ndarray,
+    painting: Painting,
+    factor: int,
+    spec: KeychainSpec,
+    mm_per_px: float,
+) -> np.ndarray:
+    """The pixels of the picture, as opposed to the background around it, which gets the rim.
+
+    Painted background comes off only after finding what the drawing encloses: a stroke
+    through an outline would otherwise open it, and the whole inside would count as outside."""
+    mask = painting.mask.enlarged(factor)
+    background = _background(labels, rgba)
+    drawn = _drawn(labels, rgba, background) | mask.keep | painting.colours.painted_enlarged(factor)
+    inside = _picture_area(drawn, spec.gap_mm / 2 / mm_per_px) & ~mask.background
+    if background is None:
+        return inside
+    return inside & ~_outer_notches(labels, inside, background, spec.min_line_mm / 2 / mm_per_px)
 
 
 def _rgba(image: Image.Image) -> np.ndarray:
     return np.asarray(image.convert("RGBA"), dtype=float)
 
 
-def _drawn(labels: np.ndarray, rgba: np.ndarray) -> np.ndarray:
-    """The pixels that are not background: opaque ones, or else those unlike the border colour."""
-    opaque = rgba[..., 3] >= OPAQUE
-    if not opaque.all():
-        return opaque
+def _background(labels: np.ndarray, rgba: np.ndarray) -> int | None:
+    """The palette colour of the background, the most common along the border; none if the
+    picture has a transparent background instead."""
+    if not (rgba[..., 3] >= OPAQUE).all():
+        return None
     border = np.concatenate([labels[0], labels[-1], labels[:, 0], labels[:, -1]])
-    return labels != np.bincount(border).argmax()
+    return int(np.bincount(border).argmax())
+
+
+def _drawn(labels: np.ndarray, rgba: np.ndarray, background: int | None) -> np.ndarray:
+    """The pixels that are not background: opaque ones, or else those unlike the background."""
+    if background is None:
+        return rgba[..., 3] >= OPAQUE
+    return labels != background
 
 
 def _widest_side_px(mask: np.ndarray) -> int:
@@ -86,8 +119,21 @@ def _widest_side_px(mask: np.ndarray) -> int:
 
 
 def _picture_area(drawn: np.ndarray, gap_radius_px: float) -> np.ndarray:
-    """The drawing with small openings in its outer line closed, so white parts inside stay in."""
+    """The drawing with small openings in its outer line closed, so white parts inside stay in,
+    such as a white dog whose outline has gaps between the tufts of fur."""
     return ndimage.binary_fill_holes(closed(drawn, gap_radius_px))
+
+
+def _outer_notches(labels: np.ndarray, inside: np.ndarray, background: int, radius_px: float) -> np.ndarray:
+    """Background in narrow notches along the outside, such as between the tips of hair strands.
+
+    Closing the openings in the outline also fills these, but they are background, not part of
+    the picture: kept in, they are too narrow to print and the strands would merge."""
+    area = (labels == background) & inside
+    pieces, _ = ndimage.label(area)
+    wide = np.unique(pieces[opened(area, radius_px)])
+    touching_outside = np.unique(pieces[area & grown(~inside, 1)])
+    return np.isin(pieces, np.setdiff1d(touching_outside, wide)) & (pieces > 0)
 
 
 def _with_printable_areas(labels: np.ndarray, inside: np.ndarray, ink: int, radius_px: float) -> np.ndarray:

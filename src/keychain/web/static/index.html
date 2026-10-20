@@ -21,7 +21,8 @@
 
       <fieldset>
         <legend>2. Colours</legend>
-        <p class="hint">One per filament. The darkest is the ink: lines, rim and core.</p>
+        <p class="hint">One per filament. The darkest is the ink: the lines.
+          <strong>Paint</strong> paints with that colour on the picture, such as a faint strip of hair.</p>
         <ul id="colours"></ul>
         <div class="row">
           <button type="button" id="add-colour">Add colour</button>
@@ -36,9 +37,11 @@
           <button type="button" class="tool" data-tool="keep" aria-pressed="false">Keep</button>
           <button type="button" class="tool" data-tool="smooth" aria-pressed="false">Smooth</button>
           <button type="button" class="tool" data-tool="detailed" aria-pressed="false">Detailed</button>
+          <button type="button" class="tool" data-tool="connect" aria-pressed="false">Connect</button>
           <button type="button" class="tool" data-tool="erase" aria-pressed="false">Erase</button>
         </div>
-        <p class="hint">Smooth: calmer curves there. Detailed: follow the picture more closely there.</p>
+        <p class="hint">Smooth: calmer curves there. Detailed: follow the picture more closely there.
+          Connect: click A, then B, to join an area that fades out in between, such as a strip of hair.</p>
         <label>Brush size <input type="range" id="brush" min="2" max="80" value="20"></label>
         <button type="button" id="clear-mask">Clear mask</button>
       </fieldset>
@@ -50,6 +53,9 @@
         <label>Core (mm) <input type="number" data-spec="core_mm" value="1.4" min="0.2" step="0.1"></label>
         <label>Rim (mm) <input type="number" data-spec="rim_mm" value="1.5" min="0.4" step="0.1"></label>
         <label>Hole (mm) <input type="number" data-spec="hole_mm" value="4" min="1" step="0.5"></label>
+        <label>Rim colour <select id="rim"><option value="">ink (darkest)</option></select></label>
+        <p class="hint">The rim, the ring and the core between the two faces. A light rim keeps the picture's
+          outer lines visible, such as strands of hair.</p>
         <label>Curve tolerance (mm)
           <input type="range" data-spec="curve_tolerance_mm" min="0.02" max="0.3" step="0.02" value="0.08">
         </label>
@@ -69,8 +75,10 @@
       <h2>Picture and mask</h2>
       <div class="stack" id="painter">
         <canvas id="picture-canvas"></canvas>
+        <canvas id="paint-canvas"></canvas>
         <canvas id="mask-canvas"></canvas>
         <canvas id="detail-canvas"></canvas>
+        <canvas id="lines-canvas"></canvas>
       </div>
       <p class="hint">Red: background, left out. Green: part of the keychain, even if it looks like background.
         Blue: smooth. Yellow: detailed.</p>
@@ -78,7 +86,13 @@
 
     <section class="canvas-panel">
       <h2>Keychain front</h2>
-      <div id="preview" class="preview"></div>
+      <div class="preview-frame">
+        <div id="preview" class="preview"></div>
+        <div id="working" class="working" hidden>
+          <span class="wheel" aria-hidden="true"></span>
+          <span id="working-text"></span>
+        </div>
+      </div>
     </section>
   </main>
 </body>

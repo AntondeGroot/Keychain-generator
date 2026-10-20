@@ -9,6 +9,7 @@
   --busy: #b26a00;
   --error: #c62828;
   --checker: #e8e8e8;
+  --veil: rgb(255 255 255 / 0.6);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,6 +23,7 @@
     --busy: #f0a640;
     --error: #ff6b6b;
     --checker: #2c2c29;
+    --veil: rgb(0 0 0 / 0.55);
   }
 }
 
@@ -89,6 +91,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 #colours li { display: flex; gap: 6px; align-items: center; }
 #colours input[type="text"] { flex: 1; min-width: 0; }
 #colours input[type="color"] { width: 36px; height: 28px; padding: 0; border: none; background: none; }
+select { font: inherit; max-width: 160px; }
 
 .canvas-panel {
   background: var(--panel);
@@ -100,10 +103,38 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 .stack { position: relative; background: var(--checker); }
 .stack canvas { display: block; width: 100%; height: auto; }
-#mask-canvas, #detail-canvas { position: absolute; inset: 0; opacity: 0.45; pointer-events: none; }
-#detail-canvas { pointer-events: auto; cursor: crosshair; touch-action: none; }
-.stack.picking #detail-canvas { cursor: copy; }
+.stack canvas + canvas { position: absolute; inset: 0; opacity: 0.45; pointer-events: none; }
+#paint-canvas { opacity: 0.9; } /* the colour as it will be printed */
+#lines-canvas { opacity: 1; pointer-events: auto; cursor: crosshair; touch-action: none; }
+.stack.picking #lines-canvas { cursor: copy; }
 
 .preview { background: var(--checker); min-height: 200px; }
 .preview svg { display: block; width: 100%; height: auto; }
 .preview.placing svg { cursor: crosshair; }
+
+/* While the server works, the old preview stays visible under a veil with a turning wheel. */
+.preview-frame { position: relative; }
+.working {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--veil);
+  font-weight: 600;
+}
+.working[hidden] { display: none; }
+.wheel {
+  width: 44px;
+  height: 44px;
+  border: 5px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: turn 0.9s linear infinite;
+}
+@keyframes turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .wheel { animation: none; border-color: var(--accent); }
+}

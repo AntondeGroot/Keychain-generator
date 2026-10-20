@@ -20,14 +20,17 @@ class Part:
     top_mm: float
 
 
-def stacked_parts(face: list[Layer], outline: BaseGeometry, ink: Colour, spec: KeychainSpec) -> list[Part]:
-    """Both faces have the same layers, so seen from behind the picture shows mirrored."""
+def stacked_parts(face: list[Layer], outline: BaseGeometry, core: Colour, spec: KeychainSpec) -> list[Part]:
+    """Both faces have the same layers, so seen from behind the picture shows mirrored.
+
+    The core is one colour across the whole keychain, the rim's, so the printer changes no
+    filament in those layers, and the rim and core make one strong body."""
     core_bottom = spec.face_mm
     core_top = spec.face_mm + spec.core_mm
     back = [_part("back", layer, 0.0, core_bottom) for layer in face]
-    core = Part(CORE, outline, ink.hex, core_bottom, core_top)
+    middle = Part(CORE, outline, core.hex, core_bottom, core_top)
     front = [_part("front", layer, core_top, spec.thickness_mm) for layer in face]
-    return [*back, core, *front]
+    return [*back, middle, *front]
 
 
 def _part(side: str, layer: Layer, bottom_mm: float, top_mm: float) -> Part:

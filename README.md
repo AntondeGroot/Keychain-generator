@@ -9,7 +9,7 @@ and a keyring hole. The keychain is 3 mm thick:
 | Layer | Height | What it is |
 |---|---|---|
 | back face | 0 – 0.8 mm | the picture, mirrored when seen from behind |
-| core | 0.8 – 2.2 mm | the ink colour (usually black) across the whole keychain |
+| core | 0.8 – 2.2 mm | the rim colour across the whole keychain, so these layers need no filament change |
 | front face | 2.2 – 3.0 mm | the picture |
 
 Pictures with flat colours and dark outlines work best, such as cartoons or logos.
@@ -41,7 +41,10 @@ This opens a page on your own computer (http://127.0.0.1:8765, not reachable fro
 2. Paint a rough mask where the automatic background is wrong: **Background** (red) leaves
    that part out, **Keep** (green) keeps it even if it looks like background. Paint **Smooth**
    (blue) where the curves should be calmer than the picture, such as a wobbly JPEG edge, and
-   **Detailed** (yellow) where they should follow it more closely.
+   **Detailed** (yellow) where they should follow it more closely. The **Paint** button next to a
+   colour paints with that colour on the picture, for a detail the colours miss. **Connect**: click
+   A, then B, to join an area that fades out in between, such as a strip of hair along a
+   hairline; it gets a strip of the colour at A.
 3. Set the size, and the **curve tolerance**: how far the curves may stray from the picture.
    Every edge is drawn as splines with as few points as fit within it, with sharp corners
    kept sharp and small round blobs such as eyes drawn as ellipses.
@@ -68,15 +71,16 @@ keychain make picture.png --colours black=#090404 white=#fefefe skin=#fabe93 red
 ```
 
 Without `--colours`, `make` uses the detected colours. The darkest colour is the ink: the
-lines, the rim and the core.
+lines, and unless `--rim-colour` says otherwise also the rim, the ring and the core.
 
 | Option | Default | Meaning |
 |---|---|---|
 | `--width` | `50` | widest side of the keychain in mm, rim included, keyring tab not |
 | `--thickness` | `3.0` | total thickness in mm |
-| `--core` | `1.4` | ink-coloured middle layer in mm; the faces share the rest |
+| `--core` | `1.4` | middle layer in mm, in the rim colour; the faces share the rest |
 | `--rim` | `1.5` | border around the picture in mm |
 | `--hole` | `4.0` | keyring hole diameter in mm |
+| `--rim-colour` | ink | name of the colour for the rim, the ring and the core, such as `white`: a light rim keeps the picture's outer lines visible |
 | `--out` | `out` | output folder |
 | `--open` | | show the output folder when done |
 

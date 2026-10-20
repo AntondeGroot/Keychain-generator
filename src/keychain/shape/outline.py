@@ -14,7 +14,7 @@ JOIN_ROUNDING_MM = 2.0  # rounds the inside corners where the ring meets the rim
 @dataclass(frozen=True)
 class Outline:
     shape: BaseGeometry  # the keychain seen from above, with the hole cut out
-    ring: BaseGeometry  # the band around the hole, ink on both faces
+    ring: BaseGeometry  # a rim's width around the hole, ink on both faces even over the picture
     hole_centre: tuple[float, float]
 
 
@@ -29,7 +29,10 @@ def keychain_outline(
     joined = body.union(ring).union(_stem(body, ring, centre))
     rounded = joined.buffer(JOIN_ROUNDING_MM).buffer(-JOIN_ROUNDING_MM)
     shape = rounded.difference(hole).simplify(spec.simplify_mm)
-    return Outline(shape, ring.difference(hole), (centre.x, centre.y))
+    # The tab is wider than this band for strength, but a wider band would paint over the top
+    # of the picture: the automatic hole is only a rim's width away from it.
+    band = centre.buffer(spec.hole_mm / 2 + spec.rim_mm).difference(hole)
+    return Outline(shape, band, (centre.x, centre.y))
 
 
 def _default_hole_centre(picture: BaseGeometry, spec: KeychainSpec) -> Point:

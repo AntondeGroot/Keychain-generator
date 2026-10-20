@@ -7,7 +7,7 @@ from dataclasses import dataclass
 class KeychainSpec:
     width_mm: float = 50.0  # widest side of the keychain, rim included, keyring tab not
     thickness_mm: float = 3.0
-    core_mm: float = 1.4  # the ink-coloured middle layer between the two pictures
+    core_mm: float = 1.4  # the middle layer between the two pictures, in the rim's colour
     rim_mm: float = 1.5  # ink-coloured border around the picture
     hole_mm: float = 4.0  # keyring hole diameter
     hole_wall_mm: float = 2.5  # material around the hole
