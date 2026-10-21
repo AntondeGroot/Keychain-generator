@@ -2,11 +2,9 @@ from PIL import Image, ImageDraw
 
 from keychain.picture.palette import parse_colour
 from keychain.picture.regions import colour_map
-from keychain.spec import KeychainSpec
 
 PALETTE = [parse_colour(text) for text in ("white=#ffffff", "black=#000000", "orange=#de7e31")]
 WHITE = 0
-SMALL_KEYCHAIN_MM = 25  # about 0.14 mm per pixel of the drawing below
 
 
 def _dog_face_and_quiff() -> Image.Image:
@@ -23,8 +21,8 @@ def _dog_face_and_quiff() -> Image.Image:
     return image
 
 
-def test_background_between_strand_tips_stays_outside_while_an_enclosed_face_stays_in():
-    colours = colour_map(_dog_face_and_quiff(), PALETTE, KeychainSpec(width_mm=SMALL_KEYCHAIN_MM))
+def test_background_between_strand_tips_stays_outside_while_an_enclosed_face_stays_in(spec):
+    colours = colour_map(_dog_face_and_quiff(), PALETTE, spec)
 
     def pixel(x: int, y: int) -> tuple[int, int]:
         middle = colours.factor // 2

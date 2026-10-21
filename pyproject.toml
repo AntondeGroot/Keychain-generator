@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest>=8", "pytest-xdist>=3", "ruff>=0.6"]
 
 [project.scripts]
 keychain = "keychain.cli:main"
@@ -48,3 +48,5 @@ max-statements = 25
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The tests are independent, and most design a whole keychain: one per processor core.
+addopts = "-n auto --dist worksteal"
