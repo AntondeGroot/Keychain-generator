@@ -28,6 +28,8 @@ export class Painter {
     this.lines = new ConnectLines(overlays.lines, scale);
     const linesCanvas = overlays.lines;
     this.onPainted = onPainted;
+    this.onGuide = () => {}; // told what to do next whenever that changes
+    this.paintColourName = "black";
     this.tool = "background";
     this.paintColour = "#000000";
     this.brushScreenPx = 20;
@@ -39,7 +41,10 @@ export class Painter {
     linesCanvas.addEventListener("pointerup", () => this.#up());
     linesCanvas.addEventListener("pointerleave", () => this.#up());
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") this.curves.cancel();
+      if (event.key !== "Escape") return;
+      this.curves.cancel();
+      this.lines.cancel();
+      this.#showGuide();
     });
   }
 
@@ -81,10 +86,12 @@ export class Painter {
     this.tool = tool;
     this.lines.cancel();
     this.curves.cancel();
+    this.#showGuide();
   }
 
-  setPaintColour(hex) {
+  setPaintColour(hex, name) {
     this.paintColour = hex;
+    this.paintColourName = name || hex;
   }
 
   setBrushSize(screenPx) {
@@ -108,8 +115,10 @@ export class Painter {
       this.onPick(this.#colourAt(point));
     } else if (this.tool === "connect") {
       if (this.lines.click(point)) this.onPainted();
+      this.#showGuide();
     } else if (this.tool === "edge" || this.tool === "shape") {
       if (this.curves.click(point, this.tool, this.paintColour)) this.onPainted();
+      this.#showGuide();
     } else {
       event.target.setPointerCapture(event.pointerId);
       this.last = point;
@@ -150,6 +159,13 @@ export class Painter {
       context.stroke();
       if (!erasing) this.painted.add(layer);
     }
+  }
+
+  /** The guide for the drawing tools, and none for the brushes. */
+  #showGuide() {
+    if (this.tool === "connect") this.onGuide(this.lines.guide());
+    else if (this.tool === "edge" || this.tool === "shape") this.onGuide(this.curves.guide(this.tool, this.paintColourName));
+    else this.onGuide("");
   }
 
   #point(event) {

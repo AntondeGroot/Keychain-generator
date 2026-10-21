@@ -9,6 +9,9 @@ const EDGE_COLOUR = "#00a3e0";
 const LINE_SCREEN_PX = 2;
 const POINT_SCREEN_PX = 3;
 const SHAPE_OPACITY = 0.8;
+const FINISH_RING_COLOUR = "#ff8c00"; // the point to click to finish, ringed in a colour that stands out
+const FINISH_RING_SCREEN_PX = 7;
+const SHAPE_SMALLEST = 3; // points a shape needs before it can be closed
 
 export class HandDrawn {
   constructor(canvas, canvasPxPerScreenPx) {
@@ -17,6 +20,23 @@ export class HandDrawn {
     this.edges = []; // each [[x, y], ...] in picture pixels
     this.shapes = []; // each { points, colour }
     this.current = null; // the curve being drawn: { kind, points, colour }
+    this.finished = null; // the kind of curve just finished, to say so
+  }
+
+  /** What to do next, said plainly: the page shows it above the picture. */
+  guide(kind, colourName) {
+    const count = this.current?.kind === kind ? this.current.points.length : 0;
+    const points = `${count} point${count === 1 ? "" : "s"}`;
+    if (kind === "edge") {
+      if (count === 0 && this.finished === "edge") return "Edge done. Click to start another edge, or choose another tool.";
+      if (count === 0) return "Edge: click the first point of the edge.";
+      if (count === 1) return "Edge: 1 point. Click the next point along the edge.";
+      return `Edge: ${points}. Keep clicking along the edge. To finish: click the last point again, the one with the orange ring. Esc cancels.`;
+    }
+    if (count === 0 && this.finished === "shape") return "Shape done. Click to start another shape, or choose another tool.";
+    if (count === 0) return `Shape in ${colourName}: click the first point round the shape.`;
+    if (count < SHAPE_SMALLEST) return `Shape in ${colourName}: ${points}. Click at least ${SHAPE_SMALLEST} points round the shape.`;
+    return `Shape in ${colourName}: ${points}. To close the shape: click the first point again, the one with the orange ring. Esc cancels.`;
   }
 
   /** Adds a point, or finishes the curve; true when that finished one. */
@@ -25,7 +45,8 @@ export class HandDrawn {
     const points = this.current.points;
     const reach = CLOSE_SCREEN_PX * this.scale();
     const finishesEdge = kind === "edge" && points.length >= 2 && near(point, points.at(-1), reach);
-    const closesShape = kind === "shape" && points.length >= 3 && near(point, points[0], reach);
+    const closesShape = kind === "shape" && points.length >= SHAPE_SMALLEST && near(point, points[0], reach);
+    this.finished = finishesEdge || closesShape ? kind : null;
     if (finishesEdge) this.edges.push(points);
     if (closesShape) this.shapes.push({ points, colour: this.current.colour });
     if (finishesEdge || closesShape) {
@@ -39,6 +60,7 @@ export class HandDrawn {
 
   cancel() {
     this.current = null;
+    this.finished = null;
     this.draw();
   }
 
@@ -72,6 +94,8 @@ export class HandDrawn {
     const { kind, points, colour } = this.current;
     strokeCurve(context, spline(points, false));
     for (const [x, y] of points) dot(context, x, y, POINT_SCREEN_PX * scale, kind === "shape" ? colour : EDGE_COLOUR);
+    const finishAt = kind === "edge" ? (points.length >= 2 ? points.at(-1) : null) : points.length >= SHAPE_SMALLEST ? points[0] : null;
+    if (finishAt) ring(context, finishAt, FINISH_RING_SCREEN_PX * scale, scale);
   }
 }
 
@@ -123,6 +147,15 @@ function fillCurve(context, samples, colour) {
   context.fill();
   context.globalAlpha = 1;
   strokeCurve(context, [...samples, samples[0]]);
+}
+
+function ring(context, [x, y], radius, scale) {
+  context.strokeStyle = FINISH_RING_COLOUR;
+  context.lineWidth = 2 * LINE_SCREEN_PX * scale;
+  context.beginPath();
+  context.arc(x, y, radius, 0, 2 * Math.PI);
+  context.stroke();
+  context.lineWidth = LINE_SCREEN_PX * scale;
 }
 
 function dot(context, x, y, radius, colour) {

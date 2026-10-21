@@ -10,6 +10,9 @@
   --error: #c62828;
   --checker: #e8e8e8;
   --veil: rgb(255 255 255 / 0.6);
+  --guide-background: #fff3cd;
+  --guide-edge: #ff8c00;
+  --guide-text: #5c3b00;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -24,6 +27,9 @@
     --error: #ff6b6b;
     --checker: #2c2c29;
     --veil: rgb(0 0 0 / 0.55);
+    --guide-background: #3d2c00;
+    --guide-edge: #ff8c00;
+    --guide-text: #ffe3a3;
   }
 }
 
@@ -112,6 +118,22 @@ select { font: inherit; max-width: 160px; }
 }
 
 .stack { position: relative; background: var(--checker); }
+
+/* What to do next while drawing an edge, a shape or a connect line: hard to miss on purpose.
+   Its room is kept when it is hidden, two lines high: if it came and went, the picture would
+   move under the pointer in the middle of drawing. */
+.tool-guide {
+  box-sizing: border-box;
+  min-height: calc(2 * 1.4em + 20px);
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-left: 5px solid var(--guide-edge);
+  border-radius: 6px;
+  background: var(--guide-background);
+  color: var(--guide-text);
+  font-weight: 600;
+}
+.tool-guide[hidden] { display: block; visibility: hidden; }
 .stack canvas { display: block; width: 100%; height: auto; }
 .stack canvas + canvas { position: absolute; inset: 0; opacity: 0.45; pointer-events: none; }
 #paint-canvas { opacity: 0.9; } /* the colour as it will be printed */

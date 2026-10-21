@@ -21,6 +21,7 @@ const painter = new Painter(
   { curves: element("curves-canvas"), lines: element("lines-canvas") },
   schedulePreview,
 );
+painter.onGuide = showGuide;
 const colours = new ColourList(element("colours"), coloursChanged, choosePaintColour);
 const preview = new Preview(element("preview"), placeRing);
 
@@ -153,8 +154,16 @@ function chooseTool(chosen) {
 }
 
 function choosePaintColour(button, hex) {
-  painter.setPaintColour(hex);
+  const name = colours.get().find((colour) => colour.hex === hex)?.name;
+  painter.setPaintColour(hex, name);
   chooseTool(button);
+}
+
+/** The guide above the picture: what to do next with the drawing tools, hidden otherwise. */
+function showGuide(text) {
+  const guide = element("tool-guide");
+  guide.textContent = text;
+  guide.hidden = !text;
 }
 
 /** The rim can take any named colour; the list follows the colours, keeping the choice. */

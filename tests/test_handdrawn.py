@@ -13,6 +13,7 @@ WHITE, BLACK, SKIN, ORANGE = range(4)
 COLUMNS = range(40, 160, 10)  # where the border is measured, along its length
 ZIGZAG_PX = 1.5  # about 0.2 mm either side, the kind of wobble an edge is drawn to calm
 BORDER_ROW = 100
+OUTLINE_PX = 2  # about 0.6 mm, a line no wider than the band an edge redraws
 
 
 def _zigzag_border(below: str) -> Image.Image:
@@ -74,3 +75,18 @@ def test_an_edge_with_background_on_one_side_makes_that_side_background(spec):
     just_below = (int((BORDER_ROW + 1) * colours.factor), COLUMNS[0] * colours.factor)
     assert np.ptp(rows) < 0.2
     assert colours.labels[just_below] == OUTSIDE
+
+
+def test_an_edge_along_a_thin_outline_keeps_the_outline(spec):
+    # Orange hair above a zigzag border, with a black outline thinner than the edge's band
+    # below it and the background beyond: the edge redraws the hair's border with the outline.
+    image = Image.new("RGB", (200, 200), "white")
+    zigzag = [(30 + x, BORDER_ROW + (ZIGZAG_PX if (x // 6) % 2 else -ZIGZAG_PX)) for x in range(0, 141, 2)]
+    draw = ImageDraw.Draw(image)
+    draw.polygon([(30, 40), *[(x, y + OUTLINE_PX) for x, y in zigzag], (170, 40)], fill="black")
+    draw.polygon([(30, 40), *zigzag, (170, 40)], fill="#de7e31")
+
+    colours = colour_map(image, PALETTE, spec, _straight_edge())
+
+    just_below = (int((BORDER_ROW + 1) * colours.factor), 100 * colours.factor)
+    assert colours.labels[just_below] == BLACK

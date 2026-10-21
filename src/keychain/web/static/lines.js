@@ -30,6 +30,12 @@ export class ConnectLines {
     return completed;
   }
 
+  /** What to do next, said plainly: the page shows it above the picture. */
+  guide() {
+    if (this.start) return "Connect: now click point B, where the area goes on. Esc cancels.";
+    return "Connect: click point A, inside the colour that should run on to point B.";
+  }
+
   /** Forgets a half-drawn line, such as when another tool is chosen. */
   cancel() {
     this.start = null;
