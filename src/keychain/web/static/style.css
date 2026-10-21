@@ -115,6 +115,7 @@ select { font: inherit; max-width: 160px; }
 .stack canvas { display: block; width: 100%; height: auto; }
 .stack canvas + canvas { position: absolute; inset: 0; opacity: 0.45; pointer-events: none; }
 #paint-canvas { opacity: 0.9; } /* the colour as it will be printed */
+#curves-canvas { opacity: 1; }
 #lines-canvas { opacity: 1; pointer-events: auto; cursor: crosshair; touch-action: none; }
 .stack.picking #lines-canvas { cursor: copy; }
 

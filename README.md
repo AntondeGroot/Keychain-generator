@@ -44,7 +44,11 @@ This opens a page on your own computer (http://127.0.0.1:8765, not reachable fro
    **Detailed** (yellow) where they should follow it more closely. The **Paint** button next to a
    colour paints with that colour on the picture, for a detail the colours miss. **Connect**: click
    A, then B, to join an area that fades out in between, such as a strip of hair along a
-   hairline; it gets a strip of the colour at A.
+   hairline; it gets a strip of the colour at A. **Edge**: click points along an edge and then the
+   last point again; the border between the colours on either side follows that smooth curve,
+   such as the outer edge of a head of hair. **Shape**: click points round a shape and then the
+   first point again; it is filled with the colour last chosen with Paint, such as a pill-shaped
+   strand of hair in black. Escape cancels a curve; the eraser removes curves it touches.
 3. Set the size, and the **curve tolerance**: how far the curves may stray from the picture.
    Every edge is drawn as splines with as few points as fit within it, with sharp corners
    kept sharp and small round blobs such as eyes drawn as ellipses.

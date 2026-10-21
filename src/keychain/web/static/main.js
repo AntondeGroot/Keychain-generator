@@ -18,7 +18,7 @@ const painter = new Painter(
   element("painter"),
   element("picture-canvas"),
   { paint: element("paint-canvas"), mask: element("mask-canvas"), detail: element("detail-canvas") },
-  element("lines-canvas"),
+  { curves: element("curves-canvas"), lines: element("lines-canvas") },
   schedulePreview,
 );
 const colours = new ColourList(element("colours"), coloursChanged, choosePaintColour);
@@ -91,7 +91,7 @@ async function openProject(file) {
     const project = await readProject(file);
     Object.assign(state, { image: project.image, name: project.name, hole: project.hole ?? null });
     painter.load(await loadedImage(project.image));
-    await painter.restore({ mask: project.mask, detail: project.detail, paint: project.paint }, project.connections ?? []);
+    await painter.restore({ mask: project.mask, detail: project.detail, paint: project.paint }, project);
     colours.set(project.colours);
     for (const input of document.querySelectorAll("[data-spec]")) {
       if (input.dataset.spec in project.spec) input.value = project.spec[input.dataset.spec];
@@ -112,7 +112,7 @@ function designRequest() {
     mask: painter.dataUrl("mask"),
     detail: painter.dataUrl("detail"),
     paint: painter.dataUrl("paint"),
-    connections: painter.connections,
+    ...painter.drawing,
     rim: element("rim").value || null,
     colours: colours.get(),
     spec,
