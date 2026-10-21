@@ -1,7 +1,7 @@
 // Painting over the picture, on layers so an area can be both kept and detailed: "paint" with a
 // filament colour, "mask" for background (red) and keep (green), "detail" for smooth (blue) and
-// detailed (yellow). On top: connect lines (click A, then B, to join an area up) and edges and
-// shapes drawn as splines through clicked points.
+// detailed (yellow). On top: connect lines (click A, then B, to join an area up) and splines
+// through clicked points, open as edges or closed as shapes.
 // The layers have the picture's own size, so the server can lay them over pixel for pixel.
 
 import { HandDrawn } from "./handdrawn.js";
@@ -116,8 +116,8 @@ export class Painter {
     } else if (this.tool === "connect") {
       if (this.lines.click(point)) this.onPainted();
       this.#showGuide();
-    } else if (this.tool === "edge" || this.tool === "shape") {
-      if (this.curves.click(point, this.tool, this.paintColour)) this.onPainted();
+    } else if (this.tool === "spline") {
+      if (this.curves.click(point, this.paintColour)) this.onPainted();
       this.#showGuide();
     } else {
       event.target.setPointerCapture(event.pointerId);
@@ -164,7 +164,7 @@ export class Painter {
   /** The guide for the drawing tools, and none for the brushes. */
   #showGuide() {
     if (this.tool === "connect") this.onGuide(this.lines.guide());
-    else if (this.tool === "edge" || this.tool === "shape") this.onGuide(this.curves.guide(this.tool, this.paintColourName));
+    else if (this.tool === "spline") this.onGuide(this.curves.guide(this.paintColourName));
     else this.onGuide("");
   }
 
