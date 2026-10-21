@@ -38,28 +38,32 @@ This opens a page on your own computer (http://127.0.0.1:8765, not reachable fro
 
 1. Choose a picture. Its main colours appear as a list; change, remove or add filaments, or
    use **Pick from picture** to add the colour you click on, such as a small red tongue.
-2. Paint a rough mask where the automatic background is wrong: **Background** (red) leaves
-   that part out, **Keep** (green) keeps it even if it looks like background. Paint **Smooth**
-   (blue) where the curves should be calmer than the picture, such as a wobbly JPEG edge, and
-   **Detailed** (yellow) where they should follow it more closely. The **Paint** button next to a
-   colour paints with that colour on the picture, for a detail the colours miss. **Connect**: click
-   A, then B, to join an area that fades out in between, such as a strip of hair along a
-   hairline; it gets a strip of the colour at A. **Spline**: click points along a curve. Click
-   the last point again (orange ring) to finish it as an edge: the border between the colours
-   on either side follows that smooth curve, such as the outer edge of a head of hair. Or click
-   the first point (green ring) to close it into a shape, filled with the colour last chosen
-   with Paint, such as a pill-shaped strand of hair in black. A click near a curve already drawn
-   lands exactly on it (pink dot), so splines can start and end on each other; hold Alt to
-   place a point freely. An area that splines close off all round gets one colour, its most
-   common one, while details inside it that touch none of the curves, such as an eye, stay.
-   Escape cancels a curve; the eraser removes curves it touches. Shift and scroll zooms in on
-   the picture to draw in detail; the scale above it goes back to 100%.
-3. Set the size, and the **curve tolerance**: how far the curves may stray from the picture.
+2. **What to keep**: paint roughly where the automatic background is wrong. **Background**
+   (red) leaves that part out, **Keep** (green) keeps it even if it looks like background.
+3. **Details**: paint **Smooth** (blue) where the curves should be calmer than the picture,
+   such as a wobbly JPEG edge, and **Detailed** (yellow) where they should follow it more
+   closely. The **Paint** button next to a colour paints with that colour on the picture, for a
+   detail the colours miss. **Connect**: click A, then B, to join an area that fades out in
+   between, such as a strip of hair along a hairline; it gets a strip of the colour at A.
+   **Spline**: click points along a curve; it runs on to the pointer, to show how it will
+   bend. Click the last point again (orange ring) to finish it as an edge: the border between
+   the colours on either side follows that smooth curve, such as the outer edge of a head of
+   hair. Or click the first point (green ring) to close it into a shape, filled with the colour
+   last chosen with Paint, such as a pill-shaped strand of hair in black. A click near a curve
+   already drawn lands exactly on it (pink dot), so splines can start and end on each other;
+   hold Alt to place a point freely. An area that splines close off all round gets one colour,
+   its most common one, while details inside it that touch none of the curves, such as an eye,
+   stay. Escape cancels a curve.
+
+   Each of the two has its own **Erase**: the one under Details also takes off colour paint,
+   Connect lines and splines. Shift and scroll zooms in on the picture to draw in detail; the
+   scale above it goes back to 100%, next to the brush size.
+4. Set the size, and the **curve tolerance**: how far the curves may stray from the picture.
    Every edge is drawn as splines with as few points as fit within it, with sharp corners
    kept sharp and small round blobs such as eyes drawn as ellipses.
-4. **Place ring in preview**, then click where the keyring hole should go; a stem joins it to
+5. **Place ring in preview**, then click where the keyring hole should go; a stem joins it to
    the keychain if needed.
-5. **Download** a zip with the 3MF and the STLs.
+6. **Download** a zip with the 3MF and the STLs.
 
 **Save project** keeps everything in one `.keychain.json` file: the picture, the painted masks
 and colour paint, the Connect lines and splines, the colours, sizes, rim colour and ring

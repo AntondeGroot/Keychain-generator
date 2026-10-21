@@ -1,7 +1,8 @@
 // Painting over the picture, on layers so an area can be both kept and detailed: "paint" with a
 // filament colour, "mask" for background (red) and keep (green), "detail" for smooth (blue) and
 // detailed (yellow). On top: connect lines (click A, then B, to join an area up) and splines
-// through clicked points, open as edges or closed as shapes.
+// through clicked points, open as edges or closed as shapes. One eraser takes off the mask, the
+// other the details: the detail layer, the colour paint, and the lines and curves.
 // The layers have the picture's own size, so the server can lay them over pixel for pixel.
 
 import { HandDrawn } from "./handdrawn.js";
@@ -9,6 +10,11 @@ import { ConnectLines } from "./lines.js";
 import { loadedImage } from "./project.js";
 
 const SHARPEST_OVERLAY_PX = 4096; // the lines and curves are drawn this sharp at most, along the longest side
+
+const ERASERS = {
+  "erase-mask": { layers: ["mask"], drawing: false },
+  "erase-details": { layers: ["detail", "paint"], drawing: true }, // with the lines and curves
+};
 
 const BRUSHES = {
   background: { layer: "mask", colour: "#ff0000" },
@@ -82,11 +88,14 @@ export class Painter {
     this.clear();
   }
 
-  clear() {
-    for (const canvas of Object.values(this.layers)) {
+  /** Clears the named layers, and the lines and curves too if drawing; everything by default. */
+  clear(layers = Object.keys(this.layers), drawing = true) {
+    for (const name of layers) {
+      const canvas = this.layers[name];
       canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+      this.painted.delete(name);
     }
-    this.painted.clear();
+    if (!drawing) return;
     this.lines.set([]);
     this.curves.set([], []);
   }
@@ -161,12 +170,13 @@ export class Painter {
   }
 
   #stroke(from, to) {
-    const erasing = this.tool === "erase";
+    const eraser = ERASERS[this.tool];
+    const erasing = Boolean(eraser);
     const width = this.brushScreenPx * this.#canvasPxPerScreenPx();
-    if (erasing && (this.lines.eraseNear(to, width / 2) | this.curves.eraseNear(to, width / 2))) {
+    if (eraser?.drawing && (this.lines.eraseNear(to, width / 2) | this.curves.eraseNear(to, width / 2))) {
       this.onPainted();
     }
-    const layers = erasing ? Object.keys(this.layers) : [BRUSHES[this.tool].layer];
+    const layers = erasing ? eraser.layers : [BRUSHES[this.tool].layer];
     for (const layer of layers) {
       const context = this.layers[layer].getContext("2d");
       context.globalCompositeOperation = erasing ? "destination-out" : "source-over";
