@@ -5,6 +5,7 @@ colours on either side follows the curve exactly, such as the outer edge of a he
 shape is a closed curve filled with one colour, such as a pill-shaped strand of a quiff. Both
 are Catmull-Rom splines through the clicked points; the page draws the same curve."""
 
+from collections import Counter
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -14,6 +15,7 @@ from scipy import ndimage
 from scipy.spatial import cKDTree
 
 from keychain.picture.blends import blend_triples
+from keychain.picture.enclosed import with_enclosed_areas
 from keychain.picture.masks import grown
 from keychain.picture.nearest import darkest
 from keychain.picture.palette import Colour
@@ -31,6 +33,7 @@ LEFT, RIGHT = -1, 1
 SAMPLE_PX = 1.0  # spacing of the curve points used to find the nearest spot on it
 PIECE_MM = 0.3  # an edge reads the colours either side of it in pieces this long
 INK_LINE_SHARE = 0.6  # ink along this much of an edge, on one side, is a line the edge runs along
+STEADY_PIECES = 3  # a piece of an edge takes the colours most of the pieces this far either side have
 
 
 @dataclass(frozen=True)
@@ -62,10 +65,13 @@ def with_curves(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """The shapes and the edges drawn, on the picture enlarged by the factor; also the pixels the
     shapes cover, which stay as drawn. Shapes come first: an edge ending at one, such as a
-    strand of hair, fits round it."""
+    strand of hair, fits round it. Last, an area the curves close off gets one colour."""
     labels, inside, drawn = _with_shapes(labels, inside, drawing.shapes, palette, factor, mm_per_px)
-    current = np.where(drawn, DRAWN, np.where(inside, labels, OUTSIDE))
-    current = _with_edges(current, drawing.edges, factor, mm_per_px, darkest(palette), blend_triples(palette))
+    before = np.where(drawn, DRAWN, np.where(inside, labels, OUTSIDE))
+    current = _with_edges(before, drawing.edges, factor, mm_per_px, darkest(palette), blend_triples(palette))
+    curves = [_enlarged(spline(points, closed=False), factor) for points in drawing.edges]
+    curves += [_enlarged(spline(shape.points, closed=True), factor) for shape in drawing.shapes]
+    current = with_enclosed_areas(current, before, curves, DRAWN)
     return np.where(current < 0, labels, current), current != OUTSIDE, drawn
 
 
@@ -80,9 +86,9 @@ def _with_shapes(
     """Each shape filled with its colour, on top of the picture; it counts as part of it. Also
     the pixels the shapes cover.
 
-    A shape's border is where it is drawn: its colour just outside it, such as the picture's own
-    strand of hair next to the one drawn, goes to the colours around. A line that runs on past
-    that margin, such as an outline the shape touches, stays."""
+    A shape's border is where it is drawn: colour just outside it, such as the picture's own
+    strand of hair next to the one drawn or the halo round its tip, goes to the colours around.
+    A colour that runs on past that margin, such as an outline the shape touches, stays."""
     labels, inside = labels.copy(), inside.copy()
     drawn = np.zeros(labels.shape, dtype=bool)
     for shape in shapes:
@@ -90,8 +96,8 @@ def _with_shapes(
         labels[filled] = _nearest_index(shape.colour, palette)
         inside |= filled
         drawn |= filled
-    for index in np.unique(labels[drawn]):
-        _without_overhang(labels, inside, drawn & (labels == index), int(index), EDGE_BAND_MM / mm_per_px)
+    if drawn.any():
+        _without_overhang(labels, inside, drawn, EDGE_BAND_MM / mm_per_px)
     return labels, inside, drawn
 
 
@@ -125,10 +131,9 @@ def _with_edges(
         band = _band(_enlarged(spline(points, closed=False), factor), current.shape, band_px)
         # Every piece reads the picture as it was before this edge, not as its neighbours left it.
         whole = [band.colour_beyond(side, current) for side in (LEFT, RIGHT)]
-        pieces = [
-            (piece, _side_colours(piece, current, whole, ink, blends)) for piece in band.pieces(piece_samples)
-        ]
-        for piece, colours in pieces:
+        pieces = band.pieces(piece_samples)
+        decided = _steady([_side_colours(piece, current, whole, ink, blends) for piece in pieces])
+        for piece, colours in zip(pieces, decided, strict=True):
             if colours is None:
                 continue  # nothing to separate here
             for side, colour in zip((LEFT, RIGHT), colours, strict=True):
@@ -169,6 +174,29 @@ def _side_colours(
     if colours[other] == ink:
         colours[other] = band.colour_within(-line_side, current, ink)
     return None if colours[0] == colours[1] else colours
+
+
+def _steady(decided: list[list[int] | None]) -> list[list[int] | None]:
+    """The colours of each piece of an edge as most of the pieces around it have them.
+
+    A piece can read its sides wrong where the picture is blurred, such as where a halo hides
+    the border between hair and its outline: it then sees the same colour on both sides, or a
+    colour none of its neighbours see, and would leave a splotch the size of a piece. A real
+    change of colour along the edge runs on over several pieces, so it stays."""
+    steady = []
+    for index, own in enumerate(decided):
+        around = Counter(
+            tuple(colours)
+            for colours in decided[max(0, index - STEADY_PIECES) : index + STEADY_PIECES + 1]
+            if colours is not None
+        )
+        if not around:
+            steady.append(None)
+            continue
+        most = max(around.values())
+        keep = own is not None and around[tuple(own)] == most
+        steady.append(own if keep else list(next(c for c, n in around.items() if n == most)))
+    return steady
 
 
 @dataclass(frozen=True)
@@ -267,23 +295,23 @@ class Band:
         return max(lines, key=lambda side: amounts[(LEFT, RIGHT).index(side)])
 
 
-def _without_overhang(
-    labels: np.ndarray, inside: np.ndarray, own: np.ndarray, index: int, margin_px: float
-) -> None:
-    """Pieces of the colour in the margin round its shapes that do not run on past the margin go
-    to the nearest other colour, or the background."""
+def _without_overhang(labels: np.ndarray, inside: np.ndarray, drawn: np.ndarray, margin_px: float) -> None:
+    """Pieces of any colour in the margin round the shapes that do not run on past the margin go
+    to the nearest other colour that is not a shape, or the background."""
     current = np.where(inside, labels, OUTSIDE)
-    margin = grown(own, margin_px) & ~own
-    coloured = (current == index) & ~own
-    pieces, _ = ndimage.label(coloured & margin)
-    running_on = np.unique(pieces[ndimage.binary_dilation(coloured & ~margin)])
-    overhang = (pieces > 0) & ~np.isin(pieces, running_on)
-    if not overhang.any():
-        return
-    _, (rows, columns) = ndimage.distance_transform_edt(current == index, return_indices=True)
-    current[overhang] = current[rows[overhang], columns[overhang]]
-    labels[overhang & (current != OUTSIDE)] = current[overhang & (current != OUTSIDE)]
-    inside[overhang] = current[overhang] != OUTSIDE
+    margin = grown(drawn, margin_px) & ~drawn
+    for index in np.unique(labels[margin & inside]):
+        coloured = (current == index) & ~drawn
+        pieces, _ = ndimage.label(coloured & margin)
+        running_on = np.unique(pieces[ndimage.binary_dilation(coloured & ~margin)])
+        overhang = (pieces > 0) & ~np.isin(pieces, running_on)
+        if not overhang.any():
+            continue
+        _, (rows, columns) = ndimage.distance_transform_edt(coloured | drawn, return_indices=True)
+        current[overhang] = current[rows[overhang], columns[overhang]]
+    changed = current != np.where(inside, labels, OUTSIDE)
+    labels[changed & (current != OUTSIDE)] = current[changed & (current != OUTSIDE)]
+    inside[changed] = current[changed] != OUTSIDE
 
 
 def _span(four: np.ndarray, t: np.ndarray) -> np.ndarray:

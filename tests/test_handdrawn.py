@@ -159,3 +159,59 @@ def test_an_edge_along_a_narrow_strip_of_hair_keeps_the_strip():
     moved, _, _ = with_curves(labels, inside, Drawing(edges=(edge,)), PALETTE, 1, 0.05)
 
     assert (moved[95, 220:360] == ORANGE).all()
+
+
+def test_an_area_closed_off_by_edges_gets_one_colour():
+    # Orange hair drawn round with four edges that meet, with a patch of skin in it reaching its
+    # border, further in than an edge redraws: the patch goes, as the area is drawn as one.
+    rows, columns = np.indices((200, 200))
+    labels = np.where((rows >= 100) & (rows < 120) & (columns < 80), SKIN, ORANGE)
+    inside = (rows >= 20) & (rows < 180) & (columns >= 20) & (columns < 180)
+    corners = [(20.0, 20.0), (180.0, 20.0), (180.0, 180.0), (20.0, 180.0)]
+    edges = tuple((corners[i], corners[(i + 1) % 4]) for i in range(4))
+
+    moved, _, _ = with_curves(labels, inside, Drawing(edges=edges), PALETTE, 1, 0.05)
+
+    assert (moved[100:120, 25:80] == ORANGE).all()
+
+
+def test_a_detail_inside_an_area_closed_off_by_edges_stays():
+    # Skin drawn round with four edges that meet, with an eye in the middle that reaches none of
+    # them: the eye is part of the face, not a stray patch of colour, so it stays.
+    rows, columns = np.indices((200, 200))
+    labels = np.where((rows >= 90) & (rows < 110) & (columns >= 90) & (columns < 110), BLACK, SKIN)
+    inside = (rows >= 20) & (rows < 180) & (columns >= 20) & (columns < 180)
+    corners = [(20.0, 20.0), (180.0, 20.0), (180.0, 180.0), (20.0, 180.0)]
+    edges = tuple((corners[i], corners[(i + 1) % 4]) for i in range(4))
+
+    moved, _, _ = with_curves(labels, inside, Drawing(edges=edges), PALETTE, 1, 0.05)
+
+    assert (moved[90:110, 90:110] == BLACK).all()
+
+
+def test_an_edge_leaves_no_splotch_where_a_bit_of_it_reads_another_colour():
+    # Orange hair above skin, and a blot of ink against the edge below it, a little longer than a
+    # piece of the edge reads at a time: that bit alone would see ink on the skin's side. The
+    # pieces around it see skin, so the band there is skin too, not a splotch of ink.
+    rows, columns = np.indices((200, 400))
+    blot = (rows >= BORDER_ROW) & (rows < BORDER_ROW + 30) & (columns >= 200) & (columns < 210)
+    labels = np.select([blot, rows >= BORDER_ROW], [BLACK, SKIN], ORANGE)
+    edge = ((20.0, float(BORDER_ROW)), (380.0, float(BORDER_ROW)))
+
+    moved, _, _ = with_curves(labels, np.ones_like(blot), Drawing(edges=(edge,)), PALETTE, 1, 0.05)
+
+    assert (moved[BORDER_ROW : BORDER_ROW + 10, 200:210] == SKIN).all()
+
+
+def test_a_speck_of_another_colour_at_a_shapes_tip_goes():
+    # A black strand drawn up out of orange hair into the background, and a speck of orange halo
+    # just past its tip, as round a strand in a blurred picture: the speck goes to the
+    # background round it, not to the strand.
+    rows, columns = np.indices((200, 200))
+    speck = (rows >= 42) & (rows < 47) & (columns >= 106) & (columns < 114)  # the tip is at row 50
+    labels = np.where((rows >= BORDER_ROW) | speck, ORANGE, WHITE)
+    strand = Shape(((100, 60), (120, 60), (120, 140), (100, 140)), "#000000")
+
+    _, inside, _ = with_curves(labels, labels == ORANGE, Drawing(shapes=(strand,)), PALETTE, 1, 0.05)
+
+    assert not inside[speck].any()
