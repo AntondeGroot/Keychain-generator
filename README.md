@@ -16,7 +16,7 @@ Pictures with flat colours and dark outlines work best, such as cartoons or logo
 
 ## Setup
 
-Requires Python 3.11 or newer, on Windows, macOS or Linux.
+Requires Python 3.13 or newer, on Windows, macOS or Linux.
 
 ```sh
 python3 -m venv .venv
