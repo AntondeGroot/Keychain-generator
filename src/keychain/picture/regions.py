@@ -9,7 +9,7 @@ from scipy import ndimage
 
 from keychain.picture.blends import without_edge_blends
 from keychain.picture.connections import with_connections
-from keychain.picture.handdrawn import with_edges, with_shapes
+from keychain.picture.handdrawn import with_curves
 from keychain.picture.masks import closed, grown, opened
 from keychain.picture.nearest import darkest, nearest_colours
 from keychain.picture.painted import DetailMask, Painting
@@ -50,18 +50,18 @@ def colour_map(
     big = _rgba(image.resize((image.width * factor, image.height * factor), Image.Resampling.BICUBIC))
     labels = nearest_colours(big[..., :3], palette, spec.smoothing_mm / rough_mm_per_px)
     inside = _inside(labels, big, painting, factor, spec, rough_mm_per_px)
-    # Curves drawn by hand say exactly where things are, so they come before any clean-up.
-    labels, inside = with_shapes(labels, inside, painting.drawing.shapes, palette, factor)
-    labels, inside = with_edges(labels, inside, painting.drawing.edges, factor, rough_mm_per_px)
+    ink = darkest(palette)
+    # Curves drawn by hand say exactly where things are, so they come before any clean-up, and
+    # the clean-up leaves the drawn shapes as they are.
+    labels, inside, drawn = with_curves(labels, inside, painting.drawing, palette, factor, rough_mm_per_px)
     # Closing gaps can make the picture a little larger, so the exact scale is measured after.
     mm_per_px = spec.width_mm / _widest_side_px(inside)
-    ink = darkest(palette)
     line_radius_px = spec.min_line_mm / 2 / mm_per_px
     labels = without_edge_blends(labels, inside, palette, line_radius_px)
     labels, inside = with_connections(
         labels, inside, painting.drawing.connections, factor, ink, 2 * line_radius_px
     )
-    labels = _with_printable_areas(labels, inside, ink, line_radius_px)
+    labels = _with_printable_areas(labels, inside & ~drawn, ink, line_radius_px)
     return ColourMap(np.where(inside, labels, OUTSIDE), mm_per_px, ink, factor, painting.detail)
 
 
