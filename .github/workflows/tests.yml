@@ -1,8 +1,17 @@
 name: tests
 
 on:
+  # Branches are tested through their pull request; a push trigger for every branch as well
+  # would run everything twice, with two "ci" checks of which the first could allow a merge.
   push:
+    branches: [main]
   pull_request:
+
+# A newer push to a pull request makes its running tests outdated, so those stop. On main every
+# merge is tested to the end.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
