@@ -1,8 +1,10 @@
 // Painting over the picture, on layers so an area can be both kept and detailed: "paint" with a
 // filament colour, "mask" for background (red) and keep (green), "detail" for smooth (blue) and
-// detailed (yellow). Connect lines go on top: click A, then B, to join an area up.
+// detailed (yellow). On top: connect lines (click A, then B, to join an area up) and edges and
+// shapes drawn as splines through clicked points.
 // The layers have the picture's own size, so the server can lay them over pixel for pixel.
 
+import { HandDrawn } from "./handdrawn.js";
 import { ConnectLines } from "./lines.js";
 import { loadedImage } from "./project.js";
 
@@ -15,12 +17,16 @@ const BRUSHES = {
 };
 
 export class Painter {
-  /** layers: the painting canvases by name; linesCanvas: the one on top, which receives the pointer. */
-  constructor(stack, pictureCanvas, layers, linesCanvas, onPainted) {
+  /** layers: the painting canvases by name; overlays: the canvases for the curves and, on top and
+   * receiving the pointer, the connect lines. */
+  constructor(stack, pictureCanvas, layers, overlays, onPainted) {
     this.stack = stack;
     this.picture = pictureCanvas;
     this.layers = layers;
-    this.lines = new ConnectLines(linesCanvas, () => this.#canvasPxPerScreenPx());
+    const scale = () => this.#canvasPxPerScreenPx();
+    this.curves = new HandDrawn(overlays.curves, scale);
+    this.lines = new ConnectLines(overlays.lines, scale);
+    const linesCanvas = overlays.lines;
     this.onPainted = onPainted;
     this.tool = "background";
     this.paintColour = "#000000";
@@ -32,15 +38,18 @@ export class Painter {
     linesCanvas.addEventListener("pointermove", (event) => this.#move(event));
     linesCanvas.addEventListener("pointerup", () => this.#up());
     linesCanvas.addEventListener("pointerleave", () => this.#up());
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") this.curves.cancel();
+    });
   }
 
-  /** The connect lines, as [[x, y], [x, y]] in picture pixels. */
-  get connections() {
-    return this.lines.connections;
+  /** Everything drawn by hand, as the server wants it: lines, edges and shapes in picture pixels. */
+  get drawing() {
+    return { connections: this.lines.connections, edges: this.curves.edges, shapes: this.curves.shapes };
   }
 
   load(image) {
-    for (const canvas of [this.picture, this.lines.canvas, ...Object.values(this.layers)]) {
+    for (const canvas of [this.picture, this.lines.canvas, this.curves.canvas, ...Object.values(this.layers)]) {
       canvas.width = image.naturalWidth;
       canvas.height = image.naturalHeight;
     }
@@ -54,21 +63,24 @@ export class Painter {
     }
     this.painted.clear();
     this.lines.set([]);
+    this.curves.set([], []);
   }
 
-  /** Paint saved in a project: the layers as PNG data URLs (null if unpainted), and the lines. */
-  async restore(layers, connections) {
+  /** Paint saved in a project: the layers as PNG data URLs (null if unpainted), and the drawing. */
+  async restore(layers, { connections = [], edges = [], shapes = [] }) {
     for (const [name, dataUrl] of Object.entries(layers)) {
       if (!dataUrl || !this.layers[name]) continue;
       this.layers[name].getContext("2d").drawImage(await loadedImage(dataUrl), 0, 0);
       this.painted.add(name);
     }
     this.lines.set(connections);
+    this.curves.set(edges, shapes);
   }
 
   setTool(tool) {
     this.tool = tool;
     this.lines.cancel();
+    this.curves.cancel();
   }
 
   setPaintColour(hex) {
@@ -96,6 +108,8 @@ export class Painter {
       this.onPick(this.#colourAt(point));
     } else if (this.tool === "connect") {
       if (this.lines.click(point)) this.onPainted();
+    } else if (this.tool === "edge" || this.tool === "shape") {
+      if (this.curves.click(point, this.tool, this.paintColour)) this.onPainted();
     } else {
       event.target.setPointerCapture(event.pointerId);
       this.last = point;
@@ -119,7 +133,9 @@ export class Painter {
   #stroke(from, to) {
     const erasing = this.tool === "erase";
     const width = this.brushScreenPx * this.#canvasPxPerScreenPx();
-    if (erasing) this.lines.eraseNear(to, width / 2);
+    if (erasing && (this.lines.eraseNear(to, width / 2) | this.curves.eraseNear(to, width / 2))) {
+      this.onPainted();
+    }
     const layers = erasing ? Object.keys(this.layers) : [BRUSHES[this.tool].layer];
     for (const layer of layers) {
       const context = this.layers[layer].getContext("2d");

@@ -12,7 +12,8 @@ from keychain.design import Keychain, design_keychain
 from keychain.export.svg import face_svg
 from keychain.files import keychain_files, zipped
 from keychain.picture.detection import detect_colours
-from keychain.picture.painted import ColourPaint, DetailMask, PaintedMask, Painting
+from keychain.picture.handdrawn import Shape
+from keychain.picture.painted import ColourPaint, DetailMask, Drawing, PaintedMask, Painting
 from keychain.picture.palette import Colour, parse_colour, with_unique_names
 from keychain.spec import KeychainSpec
 
@@ -71,8 +72,22 @@ def _painting(request: dict, size: tuple[int, int]) -> Painting:
         mask=PaintedMask.from_image(layers["mask"], size) if "mask" in layers else None,
         detail=DetailMask.from_image(layers["detail"], size) if "detail" in layers else None,
         colours=ColourPaint.from_image(layers["paint"], size) if "paint" in layers else None,
-        connections=_connections(request.get("connections") or []),
+        drawing=_drawing(request),
     )
+
+
+def _drawing(request: dict) -> Drawing:
+    """The lines and curves drawn on the page, in the picture's own pixels."""
+    shapes = request.get("shapes") or []
+    return Drawing(
+        connections=_connections(request.get("connections") or []),
+        edges=tuple(_points(edge) for edge in request.get("edges") or []),
+        shapes=tuple(Shape(_points(shape["points"]), shape["colour"]) for shape in shapes),
+    )
+
+
+def _points(points: list) -> tuple:
+    return tuple((float(x), float(y)) for x, y in points)
 
 
 def _connections(lines: list) -> tuple:

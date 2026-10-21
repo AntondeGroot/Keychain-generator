@@ -1,6 +1,6 @@
 """Rough masks painted by hand over the picture: to correct the automatic background, to set
-the colour of some pixels, to ask for less or more detail in some areas, and lines that join
-an area up."""
+the colour of some pixels, to ask for less or more detail in some areas, lines that join an
+area up, and curves drawn as edges and shapes."""
 
 from dataclasses import dataclass
 
@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image
 
 from keychain.picture.connections import Connection
+from keychain.picture.handdrawn import Point, Shape
 
 PAINTED = 128  # channel value from which a pixel counts as painted
 SMOOTH_TOLERANCE_FACTOR = 4  # smooth areas: the curves may stray this many times further
@@ -94,13 +95,22 @@ class ColourPaint:
 
 
 @dataclass(frozen=True)
+class Drawing:
+    """Lines and curves drawn by hand, as opposed to painted pixels."""
+
+    connections: tuple[Connection, ...] = ()
+    edges: tuple[tuple[Point, ...], ...] = ()
+    shapes: tuple[Shape, ...] = ()
+
+
+@dataclass(frozen=True)
 class Painting:
     """Everything painted by hand over one picture."""
 
     mask: PaintedMask
     detail: DetailMask
     colours: ColourPaint
-    connections: tuple[Connection, ...] = ()
+    drawing: Drawing = Drawing()
 
     @classmethod
     def of(
@@ -109,14 +119,14 @@ class Painting:
         mask: PaintedMask | None = None,
         detail: DetailMask | None = None,
         colours: ColourPaint | None = None,
-        connections: tuple[Connection, ...] = (),
+        drawing: Drawing | None = None,
     ) -> "Painting":
         """The parts that were painted; the others as if nothing was painted."""
         return cls(
             mask or PaintedMask.nothing_painted(size),
             detail or DetailMask.nothing_painted(size),
             colours or ColourPaint.nothing_painted(size),
-            connections,
+            drawing or Drawing(),
         )
 
     @classmethod

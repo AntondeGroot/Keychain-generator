@@ -45,10 +45,15 @@
           <button type="button" class="tool" data-tool="smooth" aria-pressed="false">Smooth</button>
           <button type="button" class="tool" data-tool="detailed" aria-pressed="false">Detailed</button>
           <button type="button" class="tool" data-tool="connect" aria-pressed="false">Connect</button>
+          <button type="button" class="tool" data-tool="edge" aria-pressed="false">Edge</button>
+          <button type="button" class="tool" data-tool="shape" aria-pressed="false">Shape</button>
           <button type="button" class="tool" data-tool="erase" aria-pressed="false">Erase</button>
         </div>
         <p class="hint">Smooth: calmer curves there. Detailed: follow the picture more closely there.
-          Connect: click A, then B, to join an area that fades out in between, such as a strip of hair.</p>
+          Connect: click A, then B, to join an area that fades out in between, such as a strip of hair.
+          Edge: click points along an edge, then the last point again; the border follows that curve.
+          Shape: click points round a shape, then the first point again; it is filled with the colour last
+          chosen with Paint. Escape cancels a curve.</p>
         <label>Brush size <input type="range" id="brush" min="2" max="80" value="20"></label>
         <button type="button" id="clear-mask">Clear mask</button>
       </fieldset>
@@ -85,6 +90,7 @@
         <canvas id="paint-canvas"></canvas>
         <canvas id="mask-canvas"></canvas>
         <canvas id="detail-canvas"></canvas>
+        <canvas id="curves-canvas"></canvas>
         <canvas id="lines-canvas"></canvas>
       </div>
       <p class="hint">Red: background, left out. Green: part of the keychain, even if it looks like background.

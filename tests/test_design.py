@@ -4,7 +4,7 @@ from PIL import Image, ImageDraw
 from shapely.geometry import Point
 
 from keychain.design import design_keychain
-from keychain.picture.painted import PaintedMask, Painting
+from keychain.picture.painted import Drawing, PaintedMask, Painting
 from keychain.picture.palette import Colour, parse_colour
 from keychain.spec import KeychainSpec
 
@@ -103,7 +103,8 @@ def test_a_connect_line_joins_two_areas_of_the_colour_where_it_starts():
         return shapely.get_num_geometries(next(layer.shape for layer in face if layer.name == "orange"))
 
     assert orange_pieces(None) == 2
-    assert orange_pieces(Painting.of(image.size, connections=from_one_patch_to_the_other)) == 1
+    joined = Painting.of(image.size, drawing=Drawing(connections=from_one_patch_to_the_other))
+    assert orange_pieces(joined) == 1
 
 
 def test_a_white_rim_joins_the_white_part_and_the_core_takes_the_rim_colour():
