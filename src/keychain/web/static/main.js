@@ -5,6 +5,7 @@ import { Painter } from "./painter.js";
 import { Preview } from "./preview.js";
 import { asDataUrl, loadedImage, projectBlob, readProject, saveFile } from "./project.js";
 import { call, isBusy, setStatus, whenBusyChanges } from "./server.js";
+import { PictureZoom } from "./zoom.js";
 
 const PREVIEW_DELAY_MS = 600; // waits for a pause in typing or painting before asking the server
 const NEW_COLOUR = "#888888";
@@ -22,6 +23,7 @@ const painter = new Painter(
   schedulePreview,
 );
 painter.onGuide = showGuide;
+const zoom = new PictureZoom(element("zoom-viewport"), element("painter"), zoomChanged);
 const colours = new ColourList(element("colours"), coloursChanged, choosePaintColour);
 const preview = new Preview(element("preview"), placeRing);
 
@@ -33,6 +35,8 @@ element("clear-mask").addEventListener("click", () => {
   schedulePreview();
 });
 element("brush").addEventListener("input", (event) => painter.setBrushSize(Number(event.target.value)));
+element("zoom").addEventListener("input", (event) => zoom.set(Number(event.target.value) / 100));
+element("zoom-reset").addEventListener("click", () => zoom.set(1));
 element("place-ring").addEventListener("click", () => setPlacing(!preview.placing));
 element("auto-ring").addEventListener("click", () => placeRing(null));
 element("download").addEventListener("click", download);
@@ -54,7 +58,7 @@ async function loadPicture(file) {
   state.image = await asDataUrl(file);
   state.name = file.name.replace(/\.[^.]+$/, "");
   state.hole = null;
-  painter.load(await loadedImage(state.image));
+  showPicture(await loadedImage(state.image));
   element("save-project").disabled = false;
   const found = await call("/api/colours", { image: state.image }, "Finding the colours…");
   if (!found) return;
@@ -91,7 +95,7 @@ async function openProject(file) {
   try {
     const project = await readProject(file);
     Object.assign(state, { image: project.image, name: project.name, hole: project.hole ?? null });
-    painter.load(await loadedImage(project.image));
+    showPicture(await loadedImage(project.image));
     await painter.restore({ mask: project.mask, detail: project.detail, paint: project.paint }, project);
     colours.set(project.colours);
     for (const input of document.querySelectorAll("[data-spec]")) {
@@ -157,6 +161,20 @@ function choosePaintColour(button, hex) {
   const name = colours.get().find((colour) => colour.hex === hex)?.name;
   painter.setPaintColour(hex, name);
   chooseTool(button);
+}
+
+/** A new picture to paint on, seen whole. */
+function showPicture(image) {
+  painter.load(image);
+  zoom.fit(image.naturalWidth, image.naturalHeight);
+}
+
+/** The scale above the picture follows the zoom, however it was zoomed. */
+function zoomChanged(level) {
+  const percent = Math.round(level * 100);
+  element("zoom").value = String(percent);
+  element("zoom-level").textContent = `${percent}%`;
+  painter.redrawOverlays();
 }
 
 /** The guide above the picture: what to do next with the drawing tools, hidden otherwise. */

@@ -86,7 +86,10 @@ export class HandDrawn {
   draw() {
     const context = this.canvas.getContext("2d");
     const scale = this.scale();
+    const toPicture = context.getTransform(); // the canvas can be sharper than the picture
+    context.resetTransform();
     context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    context.setTransform(toPicture);
     context.lineWidth = LINE_SCREEN_PX * scale;
     for (const { points, colour } of this.shapes) fillCurve(context, spline(points, true), colour);
     for (const points of this.edges) strokeCurve(context, spline(points, false));

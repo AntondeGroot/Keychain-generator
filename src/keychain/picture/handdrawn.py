@@ -6,21 +6,31 @@ shape is a closed curve filled with one colour, such as a pill-shaped strand of 
 are Catmull-Rom splines through the clicked points; the page draws the same curve."""
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 from PIL import Image, ImageDraw
+from scipy import ndimage
 from scipy.spatial import cKDTree
 
+from keychain.picture.blends import blend_triples
+from keychain.picture.masks import grown
+from keychain.picture.nearest import darkest
 from keychain.picture.palette import Colour
+
+if TYPE_CHECKING:
+    from keychain.picture.painted import Drawing
 
 Point = tuple[float, float]  # (x, y) in pixels of the original picture
 SAMPLES_PER_SPAN = 24  # points of the curve between two clicked points
 EDGE_BAND_MM = 0.6  # pixels this close to an edge go to the colour on their side of it
-SIDE_REACH = 2  # a side's colour is read up to this many band widths away
+SIDE_REACH = 2  # a side's colour is read beyond the band, up to this many band widths away
 OUTSIDE = -1  # the side of an edge that is background
+DRAWN = -2  # a shape, which an edge neither reads nor paints over
 LEFT, RIGHT = -1, 1
 SAMPLE_PX = 1.0  # spacing of the curve points used to find the nearest spot on it
-SPECK_SHARE = 0.1  # a colour covering less of a side than this is a speck, not that side's colour
+PIECE_MM = 0.3  # an edge reads the colours either side of it in pieces this long
+INK_LINE_SHARE = 0.6  # ink along this much of an edge, on one side, is a line the edge runs along
 
 
 @dataclass(frozen=True)
@@ -42,41 +52,123 @@ def spline(points: list[Point] | tuple[Point, ...], closed: bool) -> np.ndarray:
     return np.vstack([*pieces, end])
 
 
-def with_shapes(
-    labels: np.ndarray, inside: np.ndarray, shapes: tuple[Shape, ...], palette: list[Colour], factor: int
-) -> tuple[np.ndarray, np.ndarray]:
-    """Each shape filled with its colour, on top of the picture; it counts as part of it."""
+def with_curves(
+    labels: np.ndarray,
+    inside: np.ndarray,
+    drawing: "Drawing",
+    palette: list[Colour],
+    factor: int,
+    mm_per_px: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The shapes and the edges drawn, on the picture enlarged by the factor; also the pixels the
+    shapes cover, which stay as drawn. Shapes come first: an edge ending at one, such as a
+    strand of hair, fits round it."""
+    labels, inside, drawn = _with_shapes(labels, inside, drawing.shapes, palette, factor, mm_per_px)
+    current = np.where(drawn, DRAWN, np.where(inside, labels, OUTSIDE))
+    current = _with_edges(current, drawing.edges, factor, mm_per_px, darkest(palette), blend_triples(palette))
+    return np.where(current < 0, labels, current), current != OUTSIDE, drawn
+
+
+def _with_shapes(
+    labels: np.ndarray,
+    inside: np.ndarray,
+    shapes: tuple[Shape, ...],
+    palette: list[Colour],
+    factor: int,
+    mm_per_px: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Each shape filled with its colour, on top of the picture; it counts as part of it. Also
+    the pixels the shapes cover.
+
+    A shape's border is where it is drawn: its colour just outside it, such as the picture's own
+    strand of hair next to the one drawn, goes to the colours around. A line that runs on past
+    that margin, such as an outline the shape touches, stays."""
     labels, inside = labels.copy(), inside.copy()
+    drawn = np.zeros(labels.shape, dtype=bool)
     for shape in shapes:
         filled = _polygon_mask(labels.shape, _enlarged(spline(shape.points, closed=True), factor))
         labels[filled] = _nearest_index(shape.colour, palette)
         inside |= filled
-    return labels, inside
+        drawn |= filled
+    for index in np.unique(labels[drawn]):
+        _without_overhang(labels, inside, drawn & (labels == index), int(index), EDGE_BAND_MM / mm_per_px)
+    return labels, inside, drawn
 
 
-def with_edges(
-    labels: np.ndarray,
-    inside: np.ndarray,
+def _with_edges(
+    current: np.ndarray,
     edges: tuple[tuple[Point, ...], ...],
     factor: int,
     mm_per_px: float,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Along each edge, every pixel close to it takes the colour of its own side.
+    ink: int,
+    blends: list[tuple[int, int, int]],
+) -> np.ndarray:
+    """Along each edge, every pixel close to it takes the colour of its own side. Current holds
+    the palette index per pixel, OUTSIDE for the background and DRAWN for the shapes.
 
-    The colour of a side is what lies there now: the two colours whose border the edge redraws.
-    A side that is background makes those pixels background."""
-    current = np.where(inside, labels, OUTSIDE)
+    The colour of a side is what lies there now, just beyond the band: the two colours whose
+    border the edge redraws. It is read piece by piece along the edge, as the colours can
+    change along it, such as an edge across the top of the hair from a line to a strand. Where
+    nothing lies beyond the band, such as between two edges drawn either side of a line, it is
+    the colour in the band. A side that is background makes those pixels background. Except
+    along an ink line thinner than the band, such as the outline of a head of hair: beyond the
+    band lies past the line, so the line would be drawn over. Then that side is ink.
+
+    Along the picture's outer edge, a side whose colour is a blend, such as the pale fringe
+    where orange hair fades into the white around it, takes the colour it blends from instead.
+
+    The drawn shapes stay as they are, and do not count as either side's colour."""
+    current = current.copy()
     band_px = EDGE_BAND_MM / mm_per_px
+    piece_samples = max(1, round(PIECE_MM / mm_per_px / SAMPLE_PX))
     for points in edges:
         band = _band(_enlarged(spline(points, closed=False), factor), current.shape, band_px)
-        beyond = [band.colour_beyond(side, current) for side in (LEFT, RIGHT)]
-        if beyond[0] == beyond[1]:
-            continue  # nothing to separate here
-        colours = [band.colour_on(LEFT, current, beyond[1]), band.colour_on(RIGHT, current, beyond[0])]
-        for side, colour in zip((LEFT, RIGHT), colours, strict=True):
-            on_side = (band.sides == side) & (band.distances <= band_px)
-            current[band.rows[on_side], band.columns[on_side]] = colour
-    return np.where(current == OUTSIDE, labels, current), current != OUTSIDE
+        # Every piece reads the picture as it was before this edge, not as its neighbours left it.
+        whole = [band.colour_beyond(side, current) for side in (LEFT, RIGHT)]
+        pieces = [
+            (piece, _side_colours(piece, current, whole, ink, blends)) for piece in band.pieces(piece_samples)
+        ]
+        for piece, colours in pieces:
+            if colours is None:
+                continue  # nothing to separate here
+            for side, colour in zip((LEFT, RIGHT), colours, strict=True):
+                on_side = (piece.sides == side) & (piece.distances <= band_px)
+                on_side &= current[piece.rows, piece.columns] != DRAWN
+                current[piece.rows[on_side], piece.columns[on_side]] = colour
+    return current
+
+
+def _side_colours(
+    band: "Band", current: np.ndarray, whole: list[int], ink: int, blends: list[tuple[int, int, int]]
+) -> list[int] | None:
+    """The colours to give each side of a piece of an edge; none if both sides are the same.
+
+    What lies beyond the band next to the piece is its side's colour if the band there agrees:
+    then the colour changes along the edge, such as from an outline's tip to a strand of hair.
+    If not, beyond the band lies past something thin along the edge, such as the outline past a
+    narrow strip of hair, and the side's colour is what lies beyond the whole edge, if that is
+    in the band here too."""
+    colours = [
+        band.colour_here(side, current, everywhere)
+        for side, everywhere in zip((LEFT, RIGHT), whole, strict=True)
+    ]
+    if colours[0] == colours[1]:
+        return None
+    if OUTSIDE in colours:
+        colours = [
+            band.unblended(side, colour, current, blends)
+            for side, colour in zip((LEFT, RIGHT), colours, strict=True)
+        ]
+    line_side = band.side_of_line(ink, current)
+    if line_side is None:
+        return colours
+    # The line lies along this side: past it, beyond the band, can be anything. The other side
+    # read ink only beyond the band, from some other line, so it is what lies in the band there.
+    line, other = (LEFT, RIGHT).index(line_side), (RIGHT, LEFT).index(line_side)
+    colours[line] = ink
+    if colours[other] == ink:
+        colours[other] = band.colour_within(-line_side, current, ink)
+    return None if colours[0] == colours[1] else colours
 
 
 @dataclass(frozen=True)
@@ -87,31 +179,111 @@ class Band:
     columns: np.ndarray
     sides: np.ndarray  # LEFT or RIGHT, looking along the edge from A to B
     distances: np.ndarray
+    along: np.ndarray  # the nearest point of the curve, counted from A
+    length: int  # the points of the curve, about a pixel apart
     width_px: float
 
+    def pieces(self, samples: int) -> list["Band"]:
+        """The band cut into pieces along the edge, each as long as this many points of the curve;
+        the last one takes what is left, so no piece is too short to tell a line from a speck."""
+        numbers = np.minimum(self.along // samples, max(0, self.length // samples - 1))
+        return [
+            Band(
+                self.rows[part],
+                self.columns[part],
+                self.sides[part],
+                self.distances[part],
+                self.along[part],
+                samples if number < numbers.max() else self.length - number * samples,
+                self.width_px,
+            )
+            for number in np.unique(numbers)
+            for part in [numbers == number]
+        ]
+
     def colour_beyond(self, side: int, current: np.ndarray) -> int:
-        """The most common colour on one side, just beyond the band, where the edge does not reach."""
-        away = (self.sides == side) & (self.distances > self.width_px)
-        values = current[self.rows[away], self.columns[away]]
+        """The most common colour on one side, just beyond the band, where the edge does not reach.
+
+        If nothing lies beyond it, the side is between two parts of the edge, drawn either side of
+        a line: then it is the line, the most common colour in the band other than background."""
+        on_side = self.sides == side
+        away = on_side & (self.distances > self.width_px)
+        beyond = current[self.rows[away], self.columns[away]]
+        within = current[self.rows[on_side], self.columns[on_side]]
+        for values in (beyond[beyond != DRAWN], within[within >= 0]):
+            if len(values):
+                found, counts = np.unique(values, return_counts=True)
+                return int(found[np.argmax(counts)])
+        return OUTSIDE
+
+    def unblended(
+        self, side: int, colour: int, current: np.ndarray, blends: list[tuple[int, int, int]]
+    ) -> int:
+        """The colour, or if it is a blend of colours that lie on this side too, the most common of those."""
+        on_side = self.sides == side
+        found, counts = np.unique(current[self.rows[on_side], self.columns[on_side]], return_counts=True)
+        amounts = dict(zip(found.tolist(), counts.tolist(), strict=True))
+        parents = [
+            parent for blend, *pair in blends if blend == colour for parent in pair if parent in amounts
+        ]
+        return max(parents, key=amounts.__getitem__, default=colour)
+
+    def colour_here(self, side: int, current: np.ndarray, everywhere: int) -> int:
+        """The colour beyond the band if the band agrees, else the colour beyond the whole edge
+        if the band has it; see _side_colours."""
+        local = self.colour_beyond(side, current)
+        if local == self.colour_within(side, current, DRAWN):
+            return local
+        near = (self.sides == side) & (self.distances <= self.width_px)
+        return everywhere if (current[self.rows[near], self.columns[near]] == everywhere).any() else local
+
+    def colour_within(self, side: int, current: np.ndarray, besides: int) -> int:
+        """The most common colour on one side within the band, other than the one given."""
+        near = (self.sides == side) & (self.distances <= self.width_px)
+        values = current[self.rows[near], self.columns[near]]
+        values = values[(values != DRAWN) & (values != besides)]
         if not len(values):
-            return OUTSIDE
+            return besides
         found, counts = np.unique(values, return_counts=True)
         return int(found[np.argmax(counts)])
 
-    def colour_on(self, side: int, current: np.ndarray, other: int) -> int:
-        """The colour nearest the edge on one side that is not the other side's colour.
+    def side_of_line(self, colour: int, current: np.ndarray) -> int | None:
+        """The side a line of this colour runs along, within the band; none if it does not.
 
-        Just beyond the band can be too far: along the inside of a thin outline it lies past
-        the outline, in the background, and the outline would be drawn over."""
-        on_side = self.sides == side
-        values = current[self.rows[on_side], self.columns[on_side]]
-        distances = self.distances[on_side]
-        found, counts = np.unique(values, return_counts=True)
-        enough = counts >= SPECK_SHARE * len(values)
-        candidates = [colour for colour in found[enough] if colour != other]
-        if not candidates:
-            return self.colour_beyond(side, current)
-        return int(min(candidates, key=lambda colour: np.median(distances[values == colour])))
+        A line lies along most of the edge, unlike a speck or the end of a stroke the edge only
+        touches. An edge drawn on the line itself, along its border, has it on both sides: the
+        line is on the side with more of it."""
+        near = self.distances <= self.width_px
+        found = near & (current[self.rows, self.columns] == colour)
+        along = [len(np.unique(self.along[found & (self.sides == side)])) for side in (LEFT, RIGHT)]
+        amounts = [np.count_nonzero(found & (self.sides == side)) for side in (LEFT, RIGHT)]
+        lines = [
+            side
+            for side, reach in zip((LEFT, RIGHT), along, strict=True)
+            if reach >= INK_LINE_SHARE * self.length
+        ]
+        if not lines:
+            return None
+        return max(lines, key=lambda side: amounts[(LEFT, RIGHT).index(side)])
+
+
+def _without_overhang(
+    labels: np.ndarray, inside: np.ndarray, own: np.ndarray, index: int, margin_px: float
+) -> None:
+    """Pieces of the colour in the margin round its shapes that do not run on past the margin go
+    to the nearest other colour, or the background."""
+    current = np.where(inside, labels, OUTSIDE)
+    margin = grown(own, margin_px) & ~own
+    coloured = (current == index) & ~own
+    pieces, _ = ndimage.label(coloured & margin)
+    running_on = np.unique(pieces[ndimage.binary_dilation(coloured & ~margin)])
+    overhang = (pieces > 0) & ~np.isin(pieces, running_on)
+    if not overhang.any():
+        return
+    _, (rows, columns) = ndimage.distance_transform_edt(current == index, return_indices=True)
+    current[overhang] = current[rows[overhang], columns[overhang]]
+    labels[overhang & (current != OUTSIDE)] = current[overhang & (current != OUTSIDE)]
+    inside[overhang] = current[overhang] != OUTSIDE
 
 
 def _span(four: np.ndarray, t: np.ndarray) -> np.ndarray:
@@ -126,18 +298,35 @@ def _band(curve: np.ndarray, shape: tuple[int, int], band_px: float) -> Band:
     """The pixels along the curve, out to where the sides' colours are read. Those beyond its two
     ends are left out, so the edge does not round off at its ends."""
     reach_px = SIDE_REACH * band_px
-    rows, columns = np.nonzero(_polyline_mask(shape, curve, 2 * reach_px))
+    rows, columns = _around(curve, shape, reach_px)
     pixels = np.column_stack([columns, rows]).astype(float)
     dense = _resampled(curve, SAMPLE_PX)
-    distances, nearest = cKDTree(dense).query(pixels)
+    distances, nearest = cKDTree(dense).query(pixels, distance_upper_bound=reach_px)
+    close = distances <= reach_px
+    rows, columns, pixels, distances, nearest = (
+        rows[close],
+        columns[close],
+        pixels[close],
+        distances[close],
+        nearest[close],
+    )
     tangents = np.gradient(dense, axis=0)
     offsets = pixels - dense[nearest]
     cross = tangents[nearest, 0] * offsets[:, 1] - tangents[nearest, 1] * offsets[:, 0]
     along = np.einsum("pk,pk->p", tangents[nearest], offsets)
     beyond_ends = ((nearest == 0) & (along < 0)) | ((nearest == len(dense) - 1) & (along > 0))
-    keep = ~beyond_ends & (distances <= reach_px)
+    keep = ~beyond_ends
     sides = np.where(cross[keep] < 0, LEFT, RIGHT)
-    return Band(rows[keep], columns[keep], sides, distances[keep], band_px)
+    return Band(rows[keep], columns[keep], sides, distances[keep], nearest[keep], len(dense), band_px)
+
+
+def _around(curve: np.ndarray, shape: tuple[int, int], margin_px: float) -> tuple[np.ndarray, np.ndarray]:
+    """Rows and columns of every pixel in the curve's bounding box, widened by the margin. A wide
+    line drawn by PIL would be quicker, but it leaves holes where the curve bends."""
+    low = np.maximum(np.floor(curve.min(axis=0) - margin_px), 0).astype(int)
+    high = np.minimum(np.ceil(curve.max(axis=0) + margin_px), [shape[1] - 1, shape[0] - 1]).astype(int)
+    columns, rows = np.meshgrid(np.arange(low[0], high[0] + 1), np.arange(low[1], high[1] + 1))
+    return rows.ravel(), columns.ravel()
 
 
 def _resampled(curve: np.ndarray, spacing_px: float) -> np.ndarray:
@@ -161,12 +350,4 @@ def _enlarged(curve: np.ndarray, factor: int) -> np.ndarray:
 def _polygon_mask(shape: tuple[int, int], points: np.ndarray) -> np.ndarray:
     canvas = Image.new("1", (shape[1], shape[0]))
     ImageDraw.Draw(canvas).polygon([tuple(point) for point in points], fill=1)
-    return np.asarray(canvas)
-
-
-def _polyline_mask(shape: tuple[int, int], points: np.ndarray, width_px: float) -> np.ndarray:
-    canvas = Image.new("1", (shape[1], shape[0]))
-    ImageDraw.Draw(canvas).line(
-        [tuple(point) for point in points], fill=1, width=max(1, round(width_px)), joint="curve"
-    )
     return np.asarray(canvas)
