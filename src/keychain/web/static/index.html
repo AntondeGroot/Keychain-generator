@@ -60,6 +60,11 @@
           <button type="button" class="tool" data-tool="detailed" aria-pressed="false">Detailed</button>
           <button type="button" class="tool" data-tool="connect" aria-pressed="false">Connect</button>
           <button type="button" class="tool" data-tool="spline" aria-pressed="false">Spline</button>
+          <button type="button" class="tool" data-tool="edit-splines" aria-pressed="false"
+                  aria-label="Edit splines" title="Edit splines: drag their points">
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"
+                 stroke-linejoin="round"><path d="M11 2.5 13.5 5 5.5 13H3v-2.5z M9.5 4 12 6.5"/></svg>
+          </button>
           <button type="button" class="tool" data-tool="erase-details" aria-pressed="false">Erase</button>
         </div>
         <dl class="tool-help">
@@ -71,6 +76,7 @@
             edge with a smooth one. Or click the first point to make a shape in the colour last
             chosen with Paint, for small detailed areas. Click on another curve to start or end
             exactly on it; hold Alt to place a point freely. Escape cancels.</dd></div>
+          <div><dt>Pencil</dt><dd>Drag the points of the splines drawn, to move them.</dd></div>
           <div><dt>Erase</dt><dd>Takes off all of these, and colour paint.</dd></div>
         </dl>
         <button type="button" id="clear-details">Clear details</button>
