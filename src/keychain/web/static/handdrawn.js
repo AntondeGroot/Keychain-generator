@@ -1,7 +1,7 @@
-// Edges and shapes drawn by hand as splines through clicked points: the same Catmull-Rom curve
-// the server draws. Click points; click the last point again to finish an edge, or the first
-// point to close a shape. An edge redraws the border between the colours either side of it, a
-// shape is filled with its colour.
+// Splines drawn by hand through clicked points: the same Catmull-Rom curve the server draws.
+// Click points; click the last point again to finish an open spline, an edge, or the first
+// point to close it into a shape. An edge redraws the border between the colours either side
+// of it, a shape is filled with its colour.
 
 const SAMPLES_PER_SPAN = 24; // as on the server, so the page shows the curve that gets made
 const CLOSE_SCREEN_PX = 8; // a click this close to a point finishes the curve
@@ -9,8 +9,9 @@ const EDGE_COLOUR = "#00a3e0";
 const LINE_SCREEN_PX = 2;
 const POINT_SCREEN_PX = 3;
 const SHAPE_OPACITY = 0.8;
-const FINISH_RING_COLOUR = "#ff8c00"; // the point to click to finish, ringed in a colour that stands out
-const FINISH_RING_SCREEN_PX = 7;
+const FINISH_RING_COLOUR = "#ff8c00"; // the last point, to click to finish an edge
+const CLOSE_RING_COLOUR = "#1fbf4a"; // the first point, to click to close a shape
+const RING_SCREEN_PX = 7;
 const SHAPE_SMALLEST = 3; // points a shape needs before it can be closed
 
 export class HandDrawn {
@@ -19,34 +20,33 @@ export class HandDrawn {
     this.scale = canvasPxPerScreenPx;
     this.edges = []; // each [[x, y], ...] in picture pixels
     this.shapes = []; // each { points, colour }
-    this.current = null; // the curve being drawn: { kind, points, colour }
-    this.finished = null; // the kind of curve just finished, to say so
+    this.current = null; // the spline being drawn: { points, colour }
+    this.finished = null; // "Edge" or "Shape": what the spline just finished became, to say so
   }
 
   /** What to do next, said plainly: the page shows it above the picture. */
-  guide(kind, colourName) {
-    const count = this.current?.kind === kind ? this.current.points.length : 0;
-    const points = `${count} point${count === 1 ? "" : "s"}`;
-    if (kind === "edge") {
-      if (count === 0 && this.finished === "edge") return "Edge done. Click to start another edge, or choose another tool.";
-      if (count === 0) return "Edge: click the first point of the edge.";
-      if (count === 1) return "Edge: 1 point. Click the next point along the edge.";
-      return `Edge: ${points}. Keep clicking along the edge. To finish: click the last point again, the one with the orange ring. Esc cancels.`;
-    }
-    if (count === 0 && this.finished === "shape") return "Shape done. Click to start another shape, or choose another tool.";
-    if (count === 0) return `Shape in ${colourName}: click the first point round the shape.`;
-    if (count < SHAPE_SMALLEST) return `Shape in ${colourName}: ${points}. Click at least ${SHAPE_SMALLEST} points round the shape.`;
-    return `Shape in ${colourName}: ${points}. To close the shape: click the first point again, the one with the orange ring. Esc cancels.`;
+  guide(colourName) {
+    const count = this.current?.points.length ?? 0;
+    const finish = "Done? Click the last point again (orange ring).";
+    const done = { Edge: "Edge smoothed.", Shape: "Shape added." }[this.finished];
+    if (count === 0 && done) return `${done} Click to draw another curve, or pick another tool.`;
+    if (count === 0)
+      return "Spline: click to draw a curve. It doesn't need to be a closed loop: use it to replace a generated harsh edge with a smooth one. You can connect start to end and create a shape: useful for small detailed areas.";
+    if (count === 1) return "Spline: keep clicking along the curve.";
+    if (count < SHAPE_SMALLEST) return `Spline: keep clicking along the curve. ${finish} Esc cancels.`;
+    return `Spline: keep clicking along the curve. ${finish} Want a shape in ${colourName} instead? Click the first point (green ring). Esc cancels.`;
   }
 
-  /** Adds a point, or finishes the curve; true when that finished one. */
-  click(point, kind, colour) {
-    if (this.current?.kind !== kind) this.current = { kind, points: [], colour };
+  /** Adds a point, or finishes the spline as an edge or a shape; true when that finished one. */
+  click(point, colour) {
+    if (!this.current) this.current = { points: [], colour };
     const points = this.current.points;
     const reach = CLOSE_SCREEN_PX * this.scale();
-    const finishesEdge = kind === "edge" && points.length >= 2 && near(point, points.at(-1), reach);
-    const closesShape = kind === "shape" && points.length >= SHAPE_SMALLEST && near(point, points[0], reach);
-    this.finished = finishesEdge || closesShape ? kind : null;
+    const toFirst = points.length >= SHAPE_SMALLEST ? distance(point, points[0]) : Infinity;
+    const toLast = points.length >= 2 ? distance(point, points.at(-1)) : Infinity;
+    const closesShape = toFirst <= reach && toFirst <= toLast;
+    const finishesEdge = !closesShape && toLast <= reach;
+    this.finished = closesShape ? "Shape" : finishesEdge ? "Edge" : null;
     if (finishesEdge) this.edges.push(points);
     if (closesShape) this.shapes.push({ points, colour: this.current.colour });
     if (finishesEdge || closesShape) {
@@ -91,11 +91,12 @@ export class HandDrawn {
     for (const { points, colour } of this.shapes) fillCurve(context, spline(points, true), colour);
     for (const points of this.edges) strokeCurve(context, spline(points, false));
     if (!this.current) return;
-    const { kind, points, colour } = this.current;
+    const { points } = this.current;
     strokeCurve(context, spline(points, false));
-    for (const [x, y] of points) dot(context, x, y, POINT_SCREEN_PX * scale, kind === "shape" ? colour : EDGE_COLOUR);
-    const finishAt = kind === "edge" ? (points.length >= 2 ? points.at(-1) : null) : points.length >= SHAPE_SMALLEST ? points[0] : null;
-    if (finishAt) ring(context, finishAt, FINISH_RING_SCREEN_PX * scale, scale);
+    for (const [x, y] of points) dot(context, x, y, POINT_SCREEN_PX * scale, EDGE_COLOUR);
+    const radius = RING_SCREEN_PX * scale;
+    if (points.length >= 2) ring(context, points.at(-1), radius, scale, FINISH_RING_COLOUR);
+    if (points.length >= SHAPE_SMALLEST) ring(context, points[0], radius, scale, CLOSE_RING_COLOUR);
   }
 }
 
@@ -126,8 +127,12 @@ function span(p0, p1, p2, p3, t) {
   );
 }
 
-function near(point, [x, y], reach) {
-  return Math.hypot(point.x - x, point.y - y) <= reach;
+function near(point, at, reach) {
+  return distance(point, at) <= reach;
+}
+
+function distance(point, [x, y]) {
+  return Math.hypot(point.x - x, point.y - y);
 }
 
 function strokeCurve(context, samples) {
@@ -149,8 +154,8 @@ function fillCurve(context, samples, colour) {
   strokeCurve(context, [...samples, samples[0]]);
 }
 
-function ring(context, [x, y], radius, scale) {
-  context.strokeStyle = FINISH_RING_COLOUR;
+function ring(context, [x, y], radius, scale, colour) {
+  context.strokeStyle = colour;
   context.lineWidth = 2 * LINE_SCREEN_PX * scale;
   context.beginPath();
   context.arc(x, y, radius, 0, 2 * Math.PI);

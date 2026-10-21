@@ -119,7 +119,7 @@ select { font: inherit; max-width: 160px; }
 
 .stack { position: relative; background: var(--checker); }
 
-/* What to do next while drawing an edge, a shape or a connect line: hard to miss on purpose.
+/* What to do next while drawing a spline or a connect line: hard to miss on purpose.
    Its room is kept when it is hidden, two lines high: if it came and went, the picture would
    move under the pointer in the middle of drawing. */
 .tool-guide {
