@@ -16,10 +16,11 @@ from keychain.picture.palette import Colour
 Point = tuple[float, float]  # (x, y) in pixels of the original picture
 SAMPLES_PER_SPAN = 24  # points of the curve between two clicked points
 EDGE_BAND_MM = 0.6  # pixels this close to an edge go to the colour on their side of it
-SIDE_REACH = 2  # a side's colour is read beyond the band, up to this many band widths away
+SIDE_REACH = 2  # a side's colour is read up to this many band widths away
 OUTSIDE = -1  # the side of an edge that is background
 LEFT, RIGHT = -1, 1
 SAMPLE_PX = 1.0  # spacing of the curve points used to find the nearest spot on it
+SPECK_SHARE = 0.1  # a colour covering less of a side than this is a speck, not that side's colour
 
 
 @dataclass(frozen=True)
@@ -62,15 +63,16 @@ def with_edges(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Along each edge, every pixel close to it takes the colour of its own side.
 
-    The colour of a side is what lies there now, just beyond the band: the two colours whose
-    border the edge redraws. A side that is background makes those pixels background."""
+    The colour of a side is what lies there now: the two colours whose border the edge redraws.
+    A side that is background makes those pixels background."""
     current = np.where(inside, labels, OUTSIDE)
     band_px = EDGE_BAND_MM / mm_per_px
     for points in edges:
         band = _band(_enlarged(spline(points, closed=False), factor), current.shape, band_px)
-        colours = [band.colour_on(side, current) for side in (LEFT, RIGHT)]
-        if colours[0] == colours[1]:
+        beyond = [band.colour_beyond(side, current) for side in (LEFT, RIGHT)]
+        if beyond[0] == beyond[1]:
             continue  # nothing to separate here
+        colours = [band.colour_on(LEFT, current, beyond[1]), band.colour_on(RIGHT, current, beyond[0])]
         for side, colour in zip((LEFT, RIGHT), colours, strict=True):
             on_side = (band.sides == side) & (band.distances <= band_px)
             current[band.rows[on_side], band.columns[on_side]] = colour
@@ -87,7 +89,7 @@ class Band:
     distances: np.ndarray
     width_px: float
 
-    def colour_on(self, side: int, current: np.ndarray) -> int:
+    def colour_beyond(self, side: int, current: np.ndarray) -> int:
         """The most common colour on one side, just beyond the band, where the edge does not reach."""
         away = (self.sides == side) & (self.distances > self.width_px)
         values = current[self.rows[away], self.columns[away]]
@@ -95,6 +97,21 @@ class Band:
             return OUTSIDE
         found, counts = np.unique(values, return_counts=True)
         return int(found[np.argmax(counts)])
+
+    def colour_on(self, side: int, current: np.ndarray, other: int) -> int:
+        """The colour nearest the edge on one side that is not the other side's colour.
+
+        Just beyond the band can be too far: along the inside of a thin outline it lies past
+        the outline, in the background, and the outline would be drawn over."""
+        on_side = self.sides == side
+        values = current[self.rows[on_side], self.columns[on_side]]
+        distances = self.distances[on_side]
+        found, counts = np.unique(values, return_counts=True)
+        enough = counts >= SPECK_SHARE * len(values)
+        candidates = [colour for colour in found[enough] if colour != other]
+        if not candidates:
+            return self.colour_beyond(side, current)
+        return int(min(candidates, key=lambda colour: np.median(distances[values == colour])))
 
 
 def _span(four: np.ndarray, t: np.ndarray) -> np.ndarray:
