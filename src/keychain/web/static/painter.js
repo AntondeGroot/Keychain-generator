@@ -7,6 +7,7 @@
 
 import { HandDrawn } from "./handdrawn.js";
 import { ConnectLines } from "./lines.js";
+import { SplineEditor } from "./splineedit.js";
 import { loadedImage } from "./project.js";
 
 const SHARPEST_OVERLAY_PX = 4096; // the lines and curves are drawn this sharp at most, along the longest side
@@ -34,6 +35,7 @@ export class Painter {
     const scale = () => this.#canvasPxPerScreenPx();
     this.curves = new HandDrawn(overlays.curves, scale);
     this.lines = new ConnectLines(overlays.lines, scale);
+    this.editor = new SplineEditor(this.curves);
     const linesCanvas = overlays.lines;
     this.onPainted = onPainted;
     this.onGuide = () => {}; // told what to do next whenever that changes
@@ -50,6 +52,7 @@ export class Painter {
     linesCanvas.addEventListener("pointerleave", () => {
       this.#up();
       this.curves.hover(null, false);
+      if (this.tool === "edit-splines") this.editor.hover(null);
     });
     document.addEventListener("keydown", (event) => {
       if (event.key !== "Escape") return;
@@ -115,6 +118,8 @@ export class Painter {
     this.tool = tool;
     this.lines.cancel();
     this.curves.cancel();
+    if (tool === "edit-splines") this.editor.start();
+    else this.editor.stop();
     this.#showGuide();
   }
 
@@ -148,6 +153,8 @@ export class Painter {
     } else if (this.tool === "spline") {
       if (this.curves.click(point, this.paintColour, !event.altKey)) this.onPainted();
       this.#showGuide();
+    } else if (this.tool === "edit-splines") {
+      if (this.editor.grab(point)) event.target.setPointerCapture(event.pointerId);
     } else {
       event.target.setPointerCapture(event.pointerId);
       this.last = point;
@@ -158,12 +165,17 @@ export class Painter {
   #move(event) {
     const point = this.#point(event);
     if (this.tool === "spline" && !this.onPick) this.curves.hover(point, !event.altKey);
+    if (this.tool === "edit-splines" && !this.onPick) {
+      this.editor.drag(point, !event.altKey);
+      this.stack.classList.toggle("on-handle", this.editor.hover(point));
+    }
     if (!this.last) return;
     this.#stroke(this.last, point);
     this.last = point;
   }
 
   #up() {
+    if (this.editor.release()) this.onPainted();
     if (!this.last) return;
     this.last = null;
     this.onPainted();
@@ -196,6 +208,7 @@ export class Painter {
   #showGuide() {
     if (this.tool === "connect") this.onGuide(this.lines.guide());
     else if (this.tool === "spline") this.onGuide(this.curves.guide(this.paintColourName));
+    else if (this.tool === "edit-splines") this.onGuide(this.editor.guide());
     else this.onGuide("");
   }
 

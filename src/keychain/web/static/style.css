@@ -150,6 +150,8 @@ select { font: inherit; max-width: 160px; }
 #curves-canvas { opacity: 1; }
 #lines-canvas { opacity: 1; pointer-events: auto; cursor: crosshair; touch-action: none; }
 .stack.picking #lines-canvas { cursor: copy; }
+.stack.on-handle #lines-canvas { cursor: move; }
+.tool svg { width: 16px; height: 16px; vertical-align: -3px; }
 
 .preview { background: var(--checker); min-height: 200px; }
 .preview svg { display: block; width: 100%; height: auto; }
