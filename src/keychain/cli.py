@@ -133,7 +133,11 @@ def _add_make(commands) -> None:
     parser.add_argument(
         "--colours", nargs="+", help="filaments as name=#rrggbb; found automatically if left out"
     )
-    parser.add_argument("--width", type=float, help=f"widest side, mm (default {defaults.width_mm})")
+    parser.add_argument(
+        "--width",
+        type=float,
+        help=f"widest side of the picture, mm; the rim comes round it (default {defaults.width_mm})",
+    )
     parser.add_argument("--thickness", type=float, help=f"total, mm (default {defaults.thickness_mm})")
     parser.add_argument("--core", type=float, help=f"middle layer, mm (default {defaults.core_mm})")
     parser.add_argument(

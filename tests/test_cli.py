@@ -9,6 +9,7 @@ import trimesh
 from PIL import Image, ImageDraw
 
 from keychain.cli import main
+from keychain.spec import KeychainSpec
 
 WHITE = "#ffffff"
 
@@ -52,5 +53,6 @@ def test_make_builds_a_saved_project_with_size_options_from_the_command_line_win
         base.get("name"): base.get("displaycolor") for base in model.iter() if base.get("displaycolor")
     }
     (left, _, _), (right, _, _) = core.bounds
-    assert right - left == pytest.approx(35, abs=0.1)  # the option, not the project's 30 mm
+    picture_and_rim = 35 + 2 * KeychainSpec().rim_mm
+    assert right - left == pytest.approx(picture_and_rim, abs=0.1)  # the option, not the project's 30 mm
     assert colours["core"] == WHITE.upper()  # the project's white rim, so a white core
