@@ -30,6 +30,11 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version-file: .python-version
+          # A package without wheels for the newest Python yet, such as scikit-image, is built
+          # from source, which takes minutes. pip keeps what it built in its cache, and the cache
+          # is kept between runs until pyproject.toml changes.
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - name: Install on Python ${{ steps.python.outputs.python-version }}
         run: python -m pip install -e ".[dev]"
       - name: Lint
