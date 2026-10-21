@@ -8,6 +8,8 @@ import { HandDrawn } from "./handdrawn.js";
 import { ConnectLines } from "./lines.js";
 import { loadedImage } from "./project.js";
 
+const SHARPEST_OVERLAY_PX = 4096; // the lines and curves are drawn this sharp at most, along the longest side
+
 const BRUSHES = {
   background: { layer: "mask", colour: "#ff0000" },
   keep: { layer: "mask", colour: "#00ff00" },
@@ -51,6 +53,21 @@ export class Painter {
   /** Everything drawn by hand, as the server wants it: lines, edges and shapes in picture pixels. */
   get drawing() {
     return { connections: this.lines.connections, edges: this.curves.edges, shapes: this.curves.shapes };
+  }
+
+  /** Draws the lines and curves again, as thin and sharp on screen as before: after zooming, say.
+   * Their canvases follow the size on screen, not the picture's, and draw in picture pixels. */
+  redrawOverlays() {
+    const { width, height } = this.picture;
+    const screenPxPerPicturePx = devicePixelRatio / this.#canvasPxPerScreenPx();
+    const sharpness = Math.min(screenPxPerPicturePx, SHARPEST_OVERLAY_PX / Math.max(width, height));
+    for (const canvas of [this.curves.canvas, this.lines.canvas]) {
+      canvas.width = Math.round(width * sharpness);
+      canvas.height = Math.round(height * sharpness);
+      canvas.getContext("2d").setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
+    }
+    this.curves.draw();
+    this.lines.draw();
   }
 
   load(image) {

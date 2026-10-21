@@ -118,6 +118,10 @@ select { font: inherit; max-width: 160px; }
 }
 
 .stack { position: relative; background: var(--checker); }
+.zoom-bar { align-items: center; margin-bottom: 8px; }
+.zoom-bar output { min-width: 4ch; font-variant-numeric: tabular-nums; }
+/* Keeps the picture's shape (set from the picture) and scrolls round it when zoomed in. */
+.zoom-viewport { overflow: auto; }
 
 /* What to do next while drawing a spline or a connect line: hard to miss on purpose.
    Its room is kept when it is hidden, two lines high: if it came and went, the picture would

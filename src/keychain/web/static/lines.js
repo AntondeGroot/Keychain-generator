@@ -59,7 +59,10 @@ export class ConnectLines {
   draw() {
     const context = this.canvas.getContext("2d");
     const scale = this.scale();
+    const toPicture = context.getTransform(); // the canvas can be sharper than the picture
+    context.resetTransform();
     context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    context.setTransform(toPicture);
     context.strokeStyle = LINE_COLOUR;
     context.fillStyle = LINE_COLOUR;
     context.lineWidth = LINE_SCREEN_PX * scale;
