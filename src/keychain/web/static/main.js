@@ -31,7 +31,11 @@ element("picture").addEventListener("change", (event) => fromFileInput(event.tar
 element("add-colour").addEventListener("click", () => colours.add(NEW_COLOUR));
 element("pick-colour").addEventListener("click", togglePicking);
 element("clear-mask").addEventListener("click", () => {
-  painter.clear();
+  painter.clear(["mask"], false);
+  schedulePreview();
+});
+element("clear-details").addEventListener("click", () => {
+  painter.clear(["detail", "paint"], true);
   schedulePreview();
 });
 element("brush").addEventListener("input", (event) => painter.setBrushSize(Number(event.target.value)));

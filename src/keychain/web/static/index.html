@@ -38,28 +38,46 @@
       </fieldset>
 
       <fieldset>
-        <legend>3. Mask (rough is fine)</legend>
-        <div class="row" role="group" aria-label="Brush">
+        <legend>3. What to keep (rough is fine)</legend>
+        <div class="row" role="group" aria-label="What to keep">
           <button type="button" class="tool" data-tool="background" aria-pressed="true">Background</button>
           <button type="button" class="tool" data-tool="keep" aria-pressed="false">Keep</button>
+          <button type="button" class="tool" data-tool="erase-mask" aria-pressed="false">Erase</button>
+        </div>
+        <p class="hint">Where the picture's background is guessed wrong.</p>
+        <dl class="tool-help">
+          <div><dt>Background</dt><dd>Leave this part out.</dd></div>
+          <div><dt>Keep</dt><dd>Part of the keychain, even if it looks like background.</dd></div>
+          <div><dt>Erase</dt><dd>Takes off background and keep.</dd></div>
+        </dl>
+        <button type="button" id="clear-mask">Clear background and keep</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>4. Details</legend>
+        <div class="row" role="group" aria-label="Details">
           <button type="button" class="tool" data-tool="smooth" aria-pressed="false">Smooth</button>
           <button type="button" class="tool" data-tool="detailed" aria-pressed="false">Detailed</button>
           <button type="button" class="tool" data-tool="connect" aria-pressed="false">Connect</button>
           <button type="button" class="tool" data-tool="spline" aria-pressed="false">Spline</button>
-          <button type="button" class="tool" data-tool="erase" aria-pressed="false">Erase</button>
+          <button type="button" class="tool" data-tool="erase-details" aria-pressed="false">Erase</button>
         </div>
-        <p class="hint">Smooth: calmer curves there. Detailed: follow the picture more closely there.
-          Connect: click A, then B, to join an area that fades out in between, such as a strip of hair.
-          Spline: click to draw a curve, then click the last point again to replace a harsh edge with a
-          smooth one. Or connect the end to the start to create a shape in the colour last chosen with
-          Paint: useful for small detailed areas. Click on another curve to start or end exactly on it;
-          hold Alt to place a point freely. Escape cancels.</p>
-        <label>Brush size <input type="range" id="brush" min="2" max="80" value="20"></label>
-        <button type="button" id="clear-mask">Clear mask</button>
+        <dl class="tool-help">
+          <div><dt>Smooth</dt><dd>Calmer curves there.</dd></div>
+          <div><dt>Detailed</dt><dd>Follow the picture more closely there.</dd></div>
+          <div><dt>Connect</dt><dd>Click A, then B, to join an area that fades out in between, such as a
+            strip of hair.</dd></div>
+          <div><dt>Spline</dt><dd>Click to draw a curve, then click the last point again to replace a harsh
+            edge with a smooth one. Or click the first point to make a shape in the colour last
+            chosen with Paint, for small detailed areas. Click on another curve to start or end
+            exactly on it; hold Alt to place a point freely. Escape cancels.</dd></div>
+          <div><dt>Erase</dt><dd>Takes off all of these, and colour paint.</dd></div>
+        </dl>
+        <button type="button" id="clear-details">Clear details</button>
       </fieldset>
 
       <fieldset>
-        <legend>4. Size and smoothing</legend>
+        <legend>5. Size and smoothing</legend>
         <label>Picture width (mm) <input type="number" data-spec="width_mm" value="50" min="10" step="1"></label>
         <label>Thickness (mm) <input type="number" data-spec="thickness_mm" value="3" min="1" step="0.1"></label>
         <label>Core (mm) <input type="number" data-spec="core_mm" value="1.4" min="0.2" step="0.1"></label>
@@ -75,7 +93,7 @@
       </fieldset>
 
       <fieldset>
-        <legend>5. Keyring</legend>
+        <legend>6. Keyring</legend>
         <button type="button" id="place-ring" aria-pressed="false">Place ring in preview</button>
         <button type="button" id="auto-ring">Automatic position</button>
       </fieldset>
@@ -90,6 +108,7 @@
         <label>Zoom <input type="range" id="zoom" min="100" max="800" step="10" value="100"></label>
         <output id="zoom-level" for="zoom">100%</output>
         <button type="button" id="zoom-reset">Back to 100%</button>
+        <label>Brush size <input type="range" id="brush" min="2" max="80" value="20"></label>
       </div>
       <div class="zoom-viewport" id="zoom-viewport">
         <div class="stack" id="painter">
