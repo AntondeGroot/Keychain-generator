@@ -54,7 +54,7 @@ def colour_map(
     labels, inside = with_shapes(labels, inside, painting.drawing.shapes, palette, factor)
     labels, inside = with_edges(labels, inside, painting.drawing.edges, factor, rough_mm_per_px)
     # Closing gaps can make the picture a little larger, so the exact scale is measured after.
-    mm_per_px = spec.picture_mm / _widest_side_px(inside)
+    mm_per_px = spec.width_mm / _widest_side_px(inside)
     ink = darkest(palette)
     line_radius_px = spec.min_line_mm / 2 / mm_per_px
     labels = without_edge_blends(labels, inside, palette, line_radius_px)
@@ -72,8 +72,8 @@ def _enlargement(
     small = _rgba(image)
     labels = nearest_colours(small[..., :3], palette)
     side_px = _widest_side_px(painting.mask.applied(_drawn(labels, small, _background(labels, small))))
-    factor = max(1, math.ceil(spec.picture_mm / side_px / TARGET_MM_PER_PX))
-    return factor, spec.picture_mm / (side_px * factor)
+    factor = max(1, math.ceil(spec.width_mm / side_px / TARGET_MM_PER_PX))
+    return factor, spec.width_mm / (side_px * factor)
 
 
 def _inside(

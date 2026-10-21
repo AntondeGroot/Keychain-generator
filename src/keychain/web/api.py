@@ -8,7 +8,7 @@ from io import BytesIO
 
 from PIL import Image
 
-from keychain.design import Keychain, design_keychain
+from keychain.design import Keychain, TracedPicture, assembled_keychain, traced_picture
 from keychain.export.svg import face_svg
 from keychain.files import keychain_files, zipped
 from keychain.picture.detection import detect_colours
@@ -16,10 +16,12 @@ from keychain.picture.handdrawn import Shape
 from keychain.picture.painted import ColourPaint, DetailMask, Drawing, PaintedMask, Painting
 from keychain.picture.palette import Colour, parse_colour, with_unique_names
 from keychain.spec import KeychainSpec
+from keychain.web.tracecache import TraceCache
 
 MAX_PICTURE_PX = 4000  # larger pictures take minutes, and far more detail than 5 cm can show
 SPEC_FIELDS = ("width_mm", "thickness_mm", "core_mm", "rim_mm", "hole_mm", "curve_tolerance_mm")
 JSON = "application/json"
+TRACED = TraceCache()  # the server keeps running, so the last traced pictures can be kept
 
 
 @dataclass(frozen=True)
@@ -47,14 +49,20 @@ def download_action(request: dict) -> Response:
 
 
 def designed_from_request(request: dict) -> Keychain:
-    """The keychain for a request from the page, or for a project file it saved."""
-    image = _image(request["image"])
+    """The keychain for a request from the page, or for a project file it saved.
+
+    The picture is traced again only when something that goes into tracing changed."""
     palette = _palette(request)
+    spec = _spec(request.get("spec", {}))
+    traced = TRACED.traced(request, lambda: _traced(request, palette, spec))
     hole = request.get("hole")
     hole_centre = (float(hole[0]), float(hole[1])) if hole else None
-    spec = _spec(request.get("spec", {}))
-    painting = _painting(request, image.size)
-    return design_keychain(image, palette, spec, painting, hole_centre, _rim_colour(request, palette))
+    return assembled_keychain(traced, palette, spec, hole_centre, _rim_colour(request, palette))
+
+
+def _traced(request: dict, palette: list[Colour], spec: KeychainSpec) -> TracedPicture:
+    image = _image(request["image"])
+    return traced_picture(image, palette, spec, _painting(request, image.size))
 
 
 def _palette(request: dict) -> list[Colour]:

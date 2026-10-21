@@ -25,7 +25,7 @@ def test_face_colours_tile_the_keychain_and_the_background_is_left_out(spec):
     assert overlap_mm2 == pytest.approx(0, abs=1e-3)
     assert shapes["red"].union(shapes["black"]).symmetric_difference(keychain.outline.shape).area < 1e-3
     min_x, _, max_x, _ = keychain.outline.shape.bounds
-    assert max_x - min_x == pytest.approx(spec.width_mm, abs=0.1)
+    assert max_x - min_x == pytest.approx(spec.width_mm + 2 * spec.rim_mm, abs=0.1)  # the rim comes round
 
 
 def test_background_painted_across_an_outline_removes_only_the_stroke(spec):

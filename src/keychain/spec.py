@@ -5,10 +5,10 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class KeychainSpec:
-    width_mm: float = 50.0  # widest side of the keychain, rim included, keyring tab not
+    width_mm: float = 50.0  # widest side of the picture: a guide for printable lines; the rim comes round it
     thickness_mm: float = 3.0
     core_mm: float = 1.4  # the middle layer between the two pictures, in the rim's colour
-    rim_mm: float = 1.5  # ink-coloured border around the picture
+    rim_mm: float = 1.5  # border around the picture, in the rim colour
     hole_mm: float = 4.0  # keyring hole diameter
     hole_wall_mm: float = 2.5  # material around the hole
     min_line_mm: float = 0.4  # narrowest line the nozzle prints reliably
@@ -27,8 +27,3 @@ class KeychainSpec:
     def face_mm(self) -> float:
         """Thickness of the picture on each side of the core."""
         return (self.thickness_mm - self.core_mm) / 2
-
-    @property
-    def picture_mm(self) -> float:
-        """Widest side of the picture itself, inside the rim."""
-        return self.width_mm - 2 * self.rim_mm
