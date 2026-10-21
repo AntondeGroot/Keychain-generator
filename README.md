@@ -44,11 +44,16 @@ This opens a page on your own computer (http://127.0.0.1:8765, not reachable fro
    **Detailed** (yellow) where they should follow it more closely. The **Paint** button next to a
    colour paints with that colour on the picture, for a detail the colours miss. **Connect**: click
    A, then B, to join an area that fades out in between, such as a strip of hair along a
-   hairline; it gets a strip of the colour at A. **Edge**: click points along an edge and then the
-   last point again; the border between the colours on either side follows that smooth curve,
-   such as the outer edge of a head of hair. **Shape**: click points round a shape and then the
-   first point again; it is filled with the colour last chosen with Paint, such as a pill-shaped
-   strand of hair in black. Escape cancels a curve; the eraser removes curves it touches.
+   hairline; it gets a strip of the colour at A. **Spline**: click points along a curve. Click
+   the last point again (orange ring) to finish it as an edge: the border between the colours
+   on either side follows that smooth curve, such as the outer edge of a head of hair. Or click
+   the first point (green ring) to close it into a shape, filled with the colour last chosen
+   with Paint, such as a pill-shaped strand of hair in black. A click near a curve already drawn
+   lands exactly on it (pink dot), so splines can start and end on each other; hold Alt to
+   place a point freely. An area that splines close off all round gets one colour, its most
+   common one, while details inside it that touch none of the curves, such as an eye, stay.
+   Escape cancels a curve; the eraser removes curves it touches. Shift and scroll zooms in on
+   the picture to draw in detail; the scale above it goes back to 100%.
 3. Set the size, and the **curve tolerance**: how far the curves may stray from the picture.
    Every edge is drawn as splines with as few points as fit within it, with sharp corners
    kept sharp and small round blobs such as eyes drawn as ellipses.
@@ -57,7 +62,8 @@ This opens a page on your own computer (http://127.0.0.1:8765, not reachable fro
 5. **Download** a zip with the 3MF and the STLs.
 
 **Save project** keeps everything in one `.keychain.json` file: the picture, the painted masks
-and colour paint, the Connect lines, the colours, sizes, rim colour and ring position.
+and colour paint, the Connect lines and splines, the colours, sizes, rim colour and ring
+position.
 **Open project** carries on where you left off.
 
 The preview updates by itself after every change; each one takes a few seconds.
@@ -102,6 +108,58 @@ lines, and unless `--rim-colour` says otherwise also the rim, the ring and the c
 | `picture-front-*.stl`, `picture-core.stl`, `picture-back-*.stl` | the same parts as separate STLs |
 
 Import the 3MF in the slicer and give each part its filament.
+
+## Example: Tintin and Snowy
+
+A small JPEG of Tintin and Snowy, made into a keychain with a white rim, by drawing a few
+splines round the hair and nothing else. The project is in
+[`docs/example/kuifje.keychain.json`](docs/example/kuifje.keychain.json): open it with
+**Open project** to follow along, or make it straight away:
+
+```sh
+keychain make --project docs/example/kuifje.keychain.json
+```
+
+<img src="docs/example/picture.jpeg" alt="The picture: Tintin and Snowy" width="225">
+
+**Colours.** Seven filaments: black for the lines, white, skin, orange for the hair, light blue
+for the jumper, cream for the bone and red for the tongue. **Rim colour** white, so the black
+outline stays visible against it.
+
+**Without drawing anything,** most of the keychain is already fine, but the hair is not: the
+picture is only 225 pixels wide and blurred, so the outline round the hair is ragged, the
+strands of the quiff run into each other and the outline, and a thin strip of hair along the
+hairline breaks up.
+
+<img src="docs/example/without-drawing.png" alt="The keychain without any splines: ragged hair" width="420">
+
+**Splines** fix the hair, drawn with the picture zoomed in (shift and scroll):
+
+- An edge along the hairline, between the hair and the skin, from behind the ear to the right
+  side of the quiff.
+- An edge up the inside of the outline round the hair and back down its outside, on the left
+  and on the right of the quiff, so the outline gets an even width.
+- Three shapes in black for the strands of the quiff, with short edges between their tips and
+  the outline for the top of the hair.
+- An edge round the ear, with a short one joining it to the hairline edge.
+
+The splines round the hair start and end on each other, so together they close it off all
+round: it becomes one even orange, with no patches of the picture's blur left in it.
+
+<img src="docs/example/drawing.png" alt="The splines drawn over the hair: edges in blue, the strands as black shapes" width="380">
+
+**Ring:** **Place ring in preview**, then a click at the top left, beside the quiff. The result:
+
+<img src="docs/example/keychain.png" alt="The finished keychain" width="420">
+
+The hair close up, without the splines and with them:
+
+<img src="docs/example/hair-before-after.png" alt="The hair without and with the splines" width="580">
+
+**That is all it took.** Ten edges and three shapes on one part of the picture, and the
+program did the rest: no tracing the whole picture by hand, no converting it to DXF or SVG,
+and no building it up layer by layer in CAD software. **Download** gives the 3MF, ready for the
+slicer; there, give each part its filament.
 
 ## Pictures of characters
 

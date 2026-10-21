@@ -41,7 +41,10 @@ export class Painter {
     linesCanvas.addEventListener("pointerdown", (event) => this.#down(event));
     linesCanvas.addEventListener("pointermove", (event) => this.#move(event));
     linesCanvas.addEventListener("pointerup", () => this.#up());
-    linesCanvas.addEventListener("pointerleave", () => this.#up());
+    linesCanvas.addEventListener("pointerleave", () => {
+      this.#up();
+      this.curves.hover(null, false);
+    });
     document.addEventListener("keydown", (event) => {
       if (event.key !== "Escape") return;
       this.curves.cancel();
@@ -134,7 +137,7 @@ export class Painter {
       if (this.lines.click(point)) this.onPainted();
       this.#showGuide();
     } else if (this.tool === "spline") {
-      if (this.curves.click(point, this.paintColour)) this.onPainted();
+      if (this.curves.click(point, this.paintColour, !event.altKey)) this.onPainted();
       this.#showGuide();
     } else {
       event.target.setPointerCapture(event.pointerId);
@@ -144,8 +147,9 @@ export class Painter {
   }
 
   #move(event) {
-    if (!this.last) return;
     const point = this.#point(event);
+    if (this.tool === "spline" && !this.onPick) this.curves.hover(point, !event.altKey);
+    if (!this.last) return;
     this.#stroke(this.last, point);
     this.last = point;
   }
