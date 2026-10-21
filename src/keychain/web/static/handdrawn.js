@@ -3,6 +3,7 @@
 // point to close it into a shape. An edge redraws the border between the colours either side
 // of it, a shape is filled with its colour. A click near a finished curve snaps onto it, so a
 // new spline can start or end exactly on another one; holding Alt places the point freely.
+// While drawing, the curve runs on to the pointer, as it would be with a click there.
 
 const SAMPLES_PER_SPAN = 24; // as on the server, so the page shows the curve that gets made
 const CLOSE_SCREEN_PX = 8; // a click this close to a point finishes the curve
@@ -27,6 +28,7 @@ export class HandDrawn {
     this.current = null; // the spline being drawn: { points, colour }
     this.finished = null; // "Edge" or "Shape": what the spline just finished became, to say so
     this.snap = null; // [x, y] on a finished curve, where a click under the pointer would land
+    this.pointer = null; // { x, y } in picture pixels, while over the picture
   }
 
   /** What to do next, said plainly: the page shows it above the picture. */
@@ -56,15 +58,18 @@ export class HandDrawn {
       points.push((snapping && this.#onCurve(point)) || [point.x, point.y]);
     }
     this.snap = null;
+    this.pointer = point;
     this.draw();
     return this.finished !== null;
   }
 
-  /** Shows where a click at the point would land on a finished curve; null clears it. */
+  /** Follows the pointer: the curve being drawn runs on to it, and where a click would land on a
+   * finished curve shows; null when the pointer leaves the picture. */
   hover(point, snapping) {
     const snap = point && snapping && !this.#finishing(point) ? this.#onCurve(point) : null;
-    if (!snap && !this.snap) return;
+    if (!this.current && !snap && !this.snap) return;
     this.snap = snap;
+    this.pointer = point;
     this.draw();
   }
 
@@ -110,11 +115,22 @@ export class HandDrawn {
 
   #drawCurrent(context, scale) {
     const { points } = this.current;
-    strokeCurve(context, spline(points, false));
+    strokeCurve(context, this.#curveToPointer());
     for (const [x, y] of points) dot(context, x, y, POINT_SCREEN_PX * scale, EDGE_COLOUR);
     const radius = RING_SCREEN_PX * scale;
     if (points.length >= 2) ring(context, points.at(-1), radius, scale, FINISH_RING_COLOUR);
     if (points.length >= SHAPE_SMALLEST) ring(context, points[0], radius, scale, CLOSE_RING_COLOUR);
+  }
+
+  /** The curve being drawn as a click at the pointer would make it: on to the pointer, or closed
+   * or finished when the pointer is on the first or last point's ring. */
+  #curveToPointer() {
+    const { points } = this.current;
+    if (!this.pointer) return spline(points, false);
+    const finishing = this.#finishing(this.pointer);
+    if (finishing === "Shape") return [...spline(points, true), points[0]];
+    if (finishing === "Edge") return spline(points, false);
+    return spline([...points, this.snap ?? [this.pointer.x, this.pointer.y]], false);
   }
 
   /** "Shape" when the point closes the spline being drawn, "Edge" when it finishes it, else null. */

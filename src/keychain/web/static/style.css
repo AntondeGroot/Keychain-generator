@@ -124,8 +124,8 @@ select { font: inherit; max-width: 160px; }
 .zoom-viewport { overflow: auto; }
 
 /* What to do next while drawing a spline or a connect line: hard to miss on purpose.
-   Its room is kept when it is hidden, two lines high: if it came and went, the picture would
-   move under the pointer in the middle of drawing. */
+   Its room is kept when it is hidden, two lines high, and it does not shrink while shown: if
+   it came and went, the picture would move under the pointer in the middle of drawing. */
 .tool-guide {
   box-sizing: border-box;
   min-height: calc(2 * 1.4em + 20px);
