@@ -30,13 +30,17 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version-file: .python-version
-          # A package without wheels for the newest Python yet, such as scikit-image, is built
-          # from source, which takes minutes. pip keeps what it built in its cache, and the cache
-          # is kept between runs until pyproject.toml changes.
+          # pip keeps the wheels it downloads in its cache, kept between runs until
+          # pyproject.toml changes.
           cache: pip
           cache-dependency-path: pyproject.toml
+      # Wheels only: a package without wheels for this Python would be built from source, for
+      # minutes on every system. So a Renovate update to a Python that a package has no wheels
+      # for yet fails here ("No matching distribution found for ..."): leave it unmerged until
+      # the package has them.
       - name: Install on Python ${{ steps.python.outputs.python-version }}
-        run: python -m pip install -e ".[dev]"
+        run: |
+          python -m pip install --only-binary=:all: -e ".[dev]"
       - name: Lint
         run: |
           ruff check .
