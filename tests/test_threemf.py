@@ -9,6 +9,7 @@ from shapely.geometry import Point, box
 from keychain.export.threemf import keychain_3mf
 from keychain.picture.palette import parse_colour
 from keychain.shape.layer import Layer
+from keychain.shape.shades import Shade, Tone, filaments
 from keychain.shape.stack import stacked_parts
 from keychain.spec import KeychainSpec
 
@@ -31,7 +32,8 @@ def test_3mf_stacks_back_face_core_and_front_face_as_watertight_parts():
     outline = Point(0, 0).buffer(25)
     letter = box(-10, -5, 10, 5)
     face = [Layer("red", letter, "#e03838"), Layer("black", outline.difference(letter), "#000000")]
-    parts = stacked_parts(face, outline, parse_colour("black=#000000"), KeychainSpec())
+    black = parse_colour("black=#000000")
+    parts = stacked_parts(filaments(face, {}, black, black), outline, black, KeychainSpec())
 
     meshes = _parts(keychain_3mf("disc", parts))
 
@@ -47,3 +49,20 @@ def test_3mf_stacks_back_face_core_and_front_face_as_watertight_parts():
         (_, _, mesh_bottom), (_, _, mesh_top) = meshes[name].bounds
         assert meshes[name].is_watertight, name
         assert (mesh_bottom, mesh_top) == pytest.approx((bottom, top)), name
+
+
+def test_a_filament_with_a_shade_is_one_watertight_body_although_its_slabs_differ_in_height():
+    # Red through the face, but only in its outer 0.2 mm over a dark red square: two slabs that
+    # touch, which the slicer must see as one red body, not two pieces with a face between them.
+    outline = Point(0, 0).buffer(25)
+    dark = box(-5, -5, 5, 5)
+    red, black = parse_colour("red=#e03838"), parse_colour("black=#000000")
+    face = [Layer("red", outline.difference(dark), red.hex), Layer("darkred", dark, "#801010")]
+    shades = {"darkred": Shade(red, Tone.DARK)}
+    parts = stacked_parts(filaments(face, shades, black, black), outline, black, KeychainSpec())
+
+    front_red = _parts(keychain_3mf("disc", parts))["front-red"]
+
+    assert front_red.is_watertight
+    assert front_red.body_count == 1
+    assert front_red.volume == pytest.approx(outline.difference(dark).area * 0.8 + dark.area * 0.2, rel=1e-3)

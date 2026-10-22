@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from PIL import Image
 from shapely.geometry.base import BaseGeometry
 
+from keychain.picture.nearest import darkest, lightest
 from keychain.picture.painted import Painting
 from keychain.picture.palette import Colour
 from keychain.picture.regions import colour_map
@@ -17,6 +18,7 @@ from keychain.picture.resolution import Resolution
 from keychain.shape.faces import Sheets, face_layers, traced_sheets, with_rim_in
 from keychain.shape.layer import Layer
 from keychain.shape.outline import Outline, keychain_outline
+from keychain.shape.shades import Shade, check_shades, filaments
 from keychain.shape.stack import Part, stacked_parts
 from keychain.spec import KeychainSpec
 
@@ -71,8 +73,11 @@ def assembled_keychain(
     spec: KeychainSpec,
     hole_centre: tuple[float, float] | None = None,
     rim_colour: Colour | None = None,
+    shades: dict[str, Shade] | None = None,
 ) -> Keychain:
-    """The keychain around a traced picture: rim, ring, the colours of a face, and the layers."""
+    """The keychain around a traced picture: rim, ring, the colours of a face, and the layers.
+
+    Shades, by colour name, print in another colour's filament; their colours are not filaments."""
     sheets = traced.sheets
     ink = palette[traced.ink]
     outline = keychain_outline(sheets.picture, spec, hole_centre)
@@ -80,5 +85,9 @@ def assembled_keychain(
     rim = rim_colour or ink
     if rim != ink:
         face = with_rim_in(face, outline.shape.difference(sheets.picture), rim)
-    parts = stacked_parts(face, outline.shape, rim, spec)
+    shades = shades or {}
+    check_shades(shades)
+    real = [colour for colour in palette if colour.name not in shades]
+    under_dark, over_light = real[darkest(real)], real[lightest(real)]
+    parts = stacked_parts(filaments(face, shades, under_dark, over_light), outline.shape, rim, spec)
     return Keychain(face, sheets.picture, outline, parts, traced.resolution)

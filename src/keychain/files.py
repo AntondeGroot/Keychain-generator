@@ -8,7 +8,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from keychain.design import Keychain
-from keychain.export.stl import extruded
+from keychain.export.stl import part_body
 from keychain.export.svg import face_svg
 from keychain.export.threemf import keychain_3mf
 
@@ -20,8 +20,7 @@ def keychain_files(name: str, keychain: Keychain) -> dict[str, bytes]:
         f"{name}-preview.svg": face_svg(keychain.face, keychain.outline.shape, keychain.picture).encode(),
     }
     for part in keychain.parts:
-        mesh = extruded(part.shape, part.bottom_mm, part.top_mm)
-        files[f"{name}-{part.name}.stl"] = mesh.export(file_type="stl")
+        files[f"{name}-{part.name}.stl"] = part_body(part).export(file_type="stl")
     return files
 
 

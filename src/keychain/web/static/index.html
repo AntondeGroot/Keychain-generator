@@ -30,7 +30,9 @@
       <fieldset>
         <legend>2. Colours</legend>
         <p class="hint">One per filament. The darkest is the ink: the lines.
-          <strong>Paint</strong> paints with that colour on the picture, such as a faint strip of hair.</p>
+          <strong>Paint</strong> paints with that colour on the picture, such as a faint strip of hair.
+          A <strong>dark</strong> shade prints one thin layer of its colour over ink; a <strong>light</strong>
+          shade prints one thin layer of the lightest colour over its colour.</p>
         <ul id="colours"></ul>
         <div class="row">
           <button type="button" id="add-colour">Add colour</button>
@@ -94,6 +96,7 @@
           tick both and the picture fits within them. The preview shows both below and beside it.</p>
         <label>Thickness (mm) <input type="number" data-spec="thickness_mm" value="3" min="1" step="0.1"></label>
         <label>Core (mm) <input type="number" data-spec="core_mm" value="1.4" min="0.2" step="0.1"></label>
+        <label>Shade layer (mm) <input type="number" data-spec="shade_mm" value="0.2" min="0.04" step="0.04"></label>
         <label>Rim (mm) <input type="number" data-spec="rim_mm" value="1.5" min="0.4" step="0.1"></label>
         <label>Hole (mm) <input type="number" data-spec="hole_mm" value="4" min="1" step="0.5"></label>
         <label>Rim colour

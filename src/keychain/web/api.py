@@ -15,11 +15,21 @@ from keychain.picture.detection import detect_colours
 from keychain.picture.handdrawn import Shape
 from keychain.picture.painted import ColourPaint, DetailMask, Drawing, PaintedMask, Painting
 from keychain.picture.palette import Colour, parse_colour, rim_colour, with_unique_names
+from keychain.shape.shades import Shade, Tone
 from keychain.spec import KeychainSpec
 from keychain.web.tracecache import TraceCache
 
 MAX_PICTURE_PX = 4000  # larger pictures take minutes, and far more detail than 5 cm can show
-SPEC_FIELDS = ("width_mm", "height_mm", "thickness_mm", "core_mm", "rim_mm", "hole_mm", "curve_tolerance_mm")
+SPEC_FIELDS = (
+    "width_mm",
+    "height_mm",
+    "thickness_mm",
+    "core_mm",
+    "shade_mm",
+    "rim_mm",
+    "hole_mm",
+    "curve_tolerance_mm",
+)
 JSON = "application/json"
 TRACED = TraceCache()  # the server keeps running, so the last traced pictures can be kept
 
@@ -68,7 +78,8 @@ def designed_from_request(request: dict) -> Keychain:
     traced = TRACED.traced(request, lambda: _traced(request, palette, spec))
     hole = request.get("hole")
     hole_centre = (float(hole[0]), float(hole[1])) if hole else None
-    return assembled_keychain(traced, palette, spec, hole_centre, _rim_colour(request, palette))
+    rim = _rim_colour(request, palette)
+    return assembled_keychain(traced, palette, spec, hole_centre, rim, _shades(request, palette))
 
 
 def _traced(request: dict, palette: list[Colour], spec: KeychainSpec) -> TracedPicture:
@@ -81,6 +92,16 @@ def _palette(request: dict) -> list[Colour]:
     if not palette:
         raise ValueError("choose at least one colour")
     return palette
+
+
+def _shades(request: dict, palette: list[Colour]) -> dict[str, Shade]:
+    """The page names the colour a shade is of by its place in the list of colours."""
+    sent = [colour.get("shade") for colour in request["colours"]]
+    return {
+        colour.name: Shade(palette[int(shade["of"])], Tone(shade["tone"]))
+        for colour, shade in zip(palette, sent, strict=True)
+        if shade
+    }
 
 
 def _painting(request: dict, size: tuple[int, int]) -> Painting:

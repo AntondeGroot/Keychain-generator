@@ -30,5 +30,10 @@ def darkest(palette: list[Colour]) -> int:
     return min(range(len(palette)), key=lambda index: _lab(palette[index])[0])
 
 
+def lightest(palette: list[Colour]) -> int:
+    """The index of the colour a light shade has on top, such as a semi-transparent white."""
+    return max(range(len(palette)), key=lambda index: _lab(palette[index])[0])
+
+
 def _lab(colour: Colour) -> np.ndarray:
     return color.rgb2lab(np.array([[colour.rgb]]) / 255)[0, 0]
