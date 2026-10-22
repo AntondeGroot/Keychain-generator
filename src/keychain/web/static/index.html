@@ -85,7 +85,12 @@
 
       <fieldset>
         <legend>5. Size and smoothing</legend>
-        <label>Picture width (mm) <input type="number" data-spec="width_mm" value="50" min="10" step="1"></label>
+        <label><span><input type="checkbox" id="by-width" checked> Picture width (mm)</span>
+          <input type="number" id="width" data-spec="width_mm" value="50" min="10" step="1"></label>
+        <label><span><input type="checkbox" id="by-height"> Picture height (mm)</span>
+          <input type="number" id="height" data-spec="height_mm" value="50" min="10" step="1" disabled></label>
+        <p class="hint">Without the rim and the ring. Tick one and the other follows from the picture;
+          tick both and the picture fits within them. The preview shows both below and beside it.</p>
         <label>Thickness (mm) <input type="number" data-spec="thickness_mm" value="3" min="1" step="0.1"></label>
         <label>Core (mm) <input type="number" data-spec="core_mm" value="1.4" min="0.2" step="0.1"></label>
         <label>Rim (mm) <input type="number" data-spec="rim_mm" value="1.5" min="0.4" step="0.1"></label>

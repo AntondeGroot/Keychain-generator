@@ -19,7 +19,7 @@ class Resolution:
             return None
         needed_px = math.ceil(self.width_mm / MAX_PIXEL_MM)
         return (
-            f"The picture is small for {self.width_mm:g} mm: each pixel is printed "
+            f"The picture is small for {self.width_mm:.0f} mm: each pixel is printed "
             f"{self.pixel_mm:.2f} mm wide, so thin lines can come out blotchy or broken. A picture "
             f"of at least {needed_px} pixels across the part you keep looks better; or redraw the "
             "lines that matter with splines."

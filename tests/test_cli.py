@@ -56,3 +56,18 @@ def test_make_builds_a_saved_project_with_size_options_from_the_command_line_win
     picture_and_rim = 35 + 2 * KeychainSpec().rim_mm
     assert right - left == pytest.approx(picture_and_rim, abs=0.1)  # the option, not the project's 30 mm
     assert colours["core"] == WHITE.upper()  # the project's white rim, so a white core
+
+
+def test_a_height_alone_sets_the_height_and_leaves_the_width_to_follow(tmp_path):
+    # Four times as wide as high: 20 mm high makes it 80 mm wide, not held to the default 50 mm.
+    picture = tmp_path / "bar.png"
+    image = Image.new("RGB", (440, 140), "white")
+    ImageDraw.Draw(image).ellipse((20, 20, 419, 119), fill="#e03838", outline="black", width=6)
+    image.save(picture)
+
+    colours = ["white=#ffffff", "black=#000000", "red=#e03838"]
+    main(["make", str(picture), "--colours", *colours, "--height", "20", "--out", str(tmp_path / "out")])
+
+    core = trimesh.load(tmp_path / "out" / "bar" / "bar-core.stl")
+    (left, _, _), (right, _, _) = core.bounds
+    assert right - left == pytest.approx(80 + 2 * KeychainSpec().rim_mm, abs=0.1)

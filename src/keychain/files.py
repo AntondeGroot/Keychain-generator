@@ -17,7 +17,7 @@ def keychain_files(name: str, keychain: Keychain) -> dict[str, bytes]:
     """File name to contents, the same for the command line and the web page."""
     files = {
         f"{name}.3mf": keychain_3mf(name, keychain.parts),
-        f"{name}-preview.svg": face_svg(keychain.face, keychain.outline.shape).encode(),
+        f"{name}-preview.svg": face_svg(keychain.face, keychain.outline.shape, keychain.picture).encode(),
     }
     for part in keychain.parts:
         mesh = extruded(part.shape, part.bottom_mm, part.top_mm)

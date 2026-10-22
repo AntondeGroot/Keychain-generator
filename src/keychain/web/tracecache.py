@@ -13,7 +13,7 @@ from keychain.design import TracedPicture
 MOST_PICTURES = 8  # a few pictures, so switching back and forth stays fast too
 # What the page sends that goes into tracing. The rim is not: it comes round the picture.
 TRACING_FIELDS = ("image", "mask", "detail", "paint", "connections", "edges", "shapes")
-TRACING_SPEC_FIELDS = ("width_mm", "curve_tolerance_mm")
+TRACING_SPEC_FIELDS = ("width_mm", "height_mm", "curve_tolerance_mm")
 
 
 class TraceCache:

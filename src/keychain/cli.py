@@ -19,6 +19,7 @@ DEFAULT_PORT = 8765  # 8000 and 8080 are often taken by other local servers
 # Size options and the KeychainSpec fields they set. Left out, they keep the project's or the default.
 SIZE_OPTIONS = {
     "width": "width_mm",
+    "height": "height_mm",
     "thickness": "thickness_mm",
     "core": "core_mm",
     "rim": "rim_mm",
@@ -97,10 +98,15 @@ def _spec(args) -> KeychainSpec:
     return KeychainSpec(**_size_overrides(args))
 
 
-def _size_overrides(args) -> dict[str, float]:
-    """The KeychainSpec fields of the size options that were given."""
+def _size_overrides(args) -> dict[str, float | None]:
+    """The KeychainSpec fields of the size options that were given. A width or a height alone
+    sets that side only; both make the picture fit within them."""
     given = {option: getattr(args, option) for option in SIZE_OPTIONS}
-    return {SIZE_OPTIONS[option]: value for option, value in given.items() if value is not None}
+    overrides = {SIZE_OPTIONS[option]: value for option, value in given.items() if value is not None}
+    if (args.width is None) != (args.height is None):
+        overrides.setdefault("width_mm", None)
+        overrides.setdefault("height_mm", None)
+    return overrides
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -132,7 +138,10 @@ def _add_make(commands) -> None:
     parser.add_argument(
         "--width",
         type=float,
-        help=f"widest side of the picture, mm; the rim comes round it (default {defaults.width_mm})",
+        help=f"picture width, mm, without the rim that comes round it (default {defaults.width_mm})",
+    )
+    parser.add_argument(
+        "--height", type=float, help="picture height, mm; with --width too, the picture fits within both"
     )
     parser.add_argument("--thickness", type=float, help=f"total, mm (default {defaults.thickness_mm})")
     parser.add_argument("--core", type=float, help=f"middle layer, mm (default {defaults.core_mm})")
