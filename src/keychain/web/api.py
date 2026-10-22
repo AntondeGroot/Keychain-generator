@@ -45,7 +45,8 @@ def colours_action(request: dict) -> Response:
 def preview_action(request: dict) -> Response:
     keychain = designed_from_request(request)
     svg = face_svg(keychain.face, keychain.outline.shape)
-    return _json({"svg": svg, "hole": list(keychain.outline.hole_centre)})
+    hole = list(keychain.outline.hole_centre)
+    return _json({"svg": svg, "hole": hole, "warning": keychain.resolution.warning()})
 
 
 def download_action(request: dict) -> Response:
