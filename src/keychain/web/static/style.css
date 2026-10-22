@@ -166,6 +166,10 @@ select { font: inherit; max-width: 160px; }
 }
 .preview svg { display: block; width: 100%; height: auto; }
 .preview.placing svg { cursor: crosshair; }
+/* Where the ring would end up: see-through, so the picture under it still shows. */
+#ring-ghost { pointer-events: none; }
+#ring-ghost .ring { fill: rgb(0 0 0 / 0.55); stroke: var(--accent); stroke-width: 0.3; }
+#ring-ghost .hole { fill: var(--checker); stroke: var(--accent); stroke-width: 0.3; }
 
 /* While the server works, the old preview stays visible under a veil with a turning wheel. */
 .preview-frame { position: relative; }

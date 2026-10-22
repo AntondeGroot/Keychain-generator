@@ -43,10 +43,14 @@ def colours_action(request: dict) -> Response:
 
 
 def preview_action(request: dict) -> Response:
+    """The front face, where the ring is, and how large it is: the page shows a ring of that size
+    under the pointer while placing it."""
     keychain = designed_from_request(request)
     svg = face_svg(keychain.face, keychain.outline.shape, keychain.picture)
+    spec = _spec(request.get("spec", {}))
+    ring = {"hole_mm": spec.hole_mm / 2, "outer_mm": spec.hole_mm / 2 + spec.hole_wall_mm}
     hole = list(keychain.outline.hole_centre)
-    return _json({"svg": svg, "hole": hole, "warning": keychain.resolution.warning()})
+    return _json({"svg": svg, "hole": hole, "ring": ring, "warning": keychain.resolution.warning()})
 
 
 def download_action(request: dict) -> Response:
