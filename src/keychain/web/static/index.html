@@ -19,11 +19,12 @@
         <input type="file" id="picture" accept="image/png,image/jpeg,image/webp" aria-label="Picture file">
         <div class="row">
           <button type="button" id="save-project" disabled>Save project</button>
-          <label class="button">Open project
-            <input type="file" id="open-project" accept=".json,application/json" hidden>
-          </label>
+          <button type="button" id="save-project-as" disabled>Save as…</button>
+          <button type="button" id="open-project">Open project</button>
+          <input type="file" id="open-project-file" accept=".json,application/json" hidden>
         </div>
-        <p class="hint">A project keeps the picture with the masks, lines, colours and settings.</p>
+        <p class="hint">A project keeps the picture with the masks, lines, colours and settings.
+          <span id="project-file"></span></p>
       </fieldset>
 
       <fieldset>

@@ -27,6 +27,13 @@ function asNewest(project) {
   return { ...project, version: VERSION, spec: { ...project.spec, height_mm: project.spec.width_mm } };
 }
 
+/** Reads the chosen file, then empties the input so choosing the same file again still works. */
+export async function fromFileInput(input, read) {
+  const [file] = input.files;
+  input.value = "";
+  if (file) await read(file);
+}
+
 export function saveFile(blob, fileName) {
   const link = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: fileName });
   link.click();

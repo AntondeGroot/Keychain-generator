@@ -5,8 +5,10 @@ import { Painter } from "./painter.js";
 import { Preview } from "./preview.js";
 import { RimChoice } from "./rim.js";
 import { PictureSize } from "./size.js";
-import { asDataUrl, loadedImage, projectBlob, readProject, saveFile } from "./project.js";
+import { asDataUrl, fromFileInput, loadedImage, saveFile } from "./project.js";
+import { ProjectMenu } from "./projectmenu.js";
 import { call, isBusy, setStatus, whenBusyChanges } from "./server.js";
+import { ToolButtons } from "./tools.js";
 import { PictureZoom } from "./zoom.js";
 
 const PREVIEW_DELAY_MS = 600; // waits for a pause in typing or painting before asking the server
@@ -27,15 +29,16 @@ const painter = new Painter(
 );
 painter.onGuide = showGuide;
 const zoom = new PictureZoom(element("zoom-viewport"), element("painter"), zoomChanged);
+const tools = new ToolButtons(painter, element("pick-colour"), (hex) => colours.add(hex));
 const colours = new ColourList(element("colours"), coloursChanged, choosePaintColour);
 const preview = new Preview(element("preview"), placeRing);
 const rim = new RimChoice(element("rim"), element("rim-swatch"), schedulePreview);
 const sides = ["width", "height"].map((side) => ({ tick: element(`by-${side}`), input: element(side) }));
 const size = new PictureSize(sides, schedulePreview);
+const projectMenu = new ProjectMenu(designRequest, restoreProject);
 
 element("picture").addEventListener("change", (event) => fromFileInput(event.target, loadPicture));
 element("add-colour").addEventListener("click", () => colours.add(NEW_COLOUR));
-element("pick-colour").addEventListener("click", togglePicking);
 element("clear-mask").addEventListener("click", () => {
   painter.clear(["mask"], false);
   schedulePreview();
@@ -50,25 +53,15 @@ element("zoom-reset").addEventListener("click", () => zoom.set(1));
 element("place-ring").addEventListener("click", () => setPlacing(!preview.placing));
 element("auto-ring").addEventListener("click", () => placeRing(null));
 element("download").addEventListener("click", download);
-element("save-project").addEventListener("click", () => saveFile(projectBlob(designRequest()), `${state.name}.keychain.json`));
-element("open-project").addEventListener("change", (event) => fromFileInput(event.target, openProject));
 for (const input of document.querySelectorAll("[data-spec]")) input.addEventListener("change", schedulePreview);
-for (const button of document.querySelectorAll(".tool")) button.addEventListener("click", () => chooseTool(button));
 whenBusyChanges(updateDownloadButton);
-
-/** Reads the chosen file, then empties the input so choosing the same file again still works. */
-async function fromFileInput(input, read) {
-  const [file] = input.files;
-  input.value = "";
-  if (file) await read(file);
-}
 
 async function loadPicture(file) {
   state.image = await asDataUrl(file);
   state.name = file.name.replace(/\.[^.]+$/, "");
   state.hole = null;
   showPicture(await loadedImage(state.image));
-  element("save-project").disabled = false;
+  projectMenu.startNew();
   const found = await call("/api/colours", { image: state.image }, "Finding the colours…");
   if (!found) return;
   colours.set((await found.json()).colours.map((colour) => ({ ...colour, found: true })));
@@ -119,23 +112,17 @@ async function download() {
 }
 
 /** Everything as it was saved: picture, paint, lines, colours, sizes, rim and ring. */
-async function openProject(file) {
-  try {
-    const project = await readProject(file);
-    Object.assign(state, { image: project.image, name: project.name, hole: project.hole ?? null });
-    showPicture(await loadedImage(project.image));
-    await painter.restore({ mask: project.mask, detail: project.detail, paint: project.paint }, project);
-    colours.set(project.colours);
-    for (const input of document.querySelectorAll("[data-spec]")) {
-      if (project.spec[input.dataset.spec] != null) input.value = project.spec[input.dataset.spec];
-    }
-    size.set(project.spec);
-    coloursChanged();
-    rim.set(project.rim);
-    element("save-project").disabled = false;
-  } catch (error) {
-    setStatus(error.message, "error");
+async function restoreProject(project) {
+  Object.assign(state, { image: project.image, name: project.name, hole: project.hole ?? null });
+  showPicture(await loadedImage(project.image));
+  await painter.restore({ mask: project.mask, detail: project.detail, paint: project.paint }, project);
+  colours.set(project.colours);
+  for (const input of document.querySelectorAll("[data-spec]")) {
+    if (project.spec[input.dataset.spec] != null) input.value = project.spec[input.dataset.spec];
   }
+  size.set(project.spec);
+  coloursChanged();
+  rim.set(project.rim);
 }
 
 function designRequest() {
@@ -175,26 +162,8 @@ function setPlacing(placing) {
   if (placing) setStatus("Click in the preview where the keyring hole should go.");
 }
 
-function togglePicking() {
-  const button = element("pick-colour");
-  const picking = button.getAttribute("aria-pressed") !== "true";
-  button.setAttribute("aria-pressed", String(picking));
-  painter.pickColours(picking ? (hex) => { colours.add(hex); togglePicking(); } : null);
-  if (picking) setStatus("Click on the picture to add the colour there.");
-}
-
-/** Chooses the tool, or puts it away when it was already chosen: then dragging over the
- * picture does nothing, so it cannot be painted on by accident. */
-function chooseTool(button) {
-  const chosen = button.getAttribute("aria-pressed") === "true" ? null : button;
-  for (const tool of document.querySelectorAll(".tool")) tool.setAttribute("aria-pressed", String(tool === chosen));
-  painter.setTool(chosen?.dataset.tool ?? null);
-}
-
 function choosePaintColour(button, hex) {
-  const name = colours.get().find((colour) => colour.hex === hex)?.name;
-  painter.setPaintColour(hex, name);
-  chooseTool(button);
+  tools.choosePaint(button, hex, colours.get().find((colour) => colour.hex === hex)?.name);
 }
 
 /** A new picture to paint on, seen whole. */
