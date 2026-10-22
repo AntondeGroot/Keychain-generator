@@ -102,13 +102,13 @@ async function updatePreview() {
   const request = ++latestRequest;
   const response = await call("/api/preview", designRequest(), "Making the keychain…");
   if (!response || request !== latestRequest) return; // a newer change is already on its way
-  const { svg, hole, warning } = await response.json();
-  preview.show(svg);
+  const { svg, hole, ring, warning } = await response.json();
+  preview.show(svg, ring);
   element("resolution-warning").textContent = warning ?? "";
   element("resolution-warning").hidden = !warning;
   updateDownloadButton();
-  const ring = state.hole ? "where you placed it" : "placed automatically";
-  setStatus(`Ready. Keyring ${ring} at ${hole.map((mm) => mm.toFixed(1)).join(", ")} mm.`);
+  const placed = state.hole ? "where you placed it" : "placed automatically";
+  setStatus(`Ready. Keyring ${placed} at ${hole.map((mm) => mm.toFixed(1)).join(", ")} mm.`);
 }
 
 async function download() {

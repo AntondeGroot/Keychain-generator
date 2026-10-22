@@ -45,6 +45,15 @@ jobs:
         run: |
           ruff check .
           ruff format --check .
+      # The page's JavaScript has no tests or linter, and a syntax error, such as a name declared
+      # twice, stops the whole page from loading. The check is the same everywhere, so once is
+      # enough. Read as a module from stdin, it does not depend on Node guessing the file type.
+      - name: Check the page's JavaScript
+        if: runner.os == 'Linux'
+        run: |
+          for file in src/keychain/web/static/*.js; do
+            node --input-type=module --check < "$file" || { echo "::error file=$file::syntax error in $file"; exit 1; }
+          done
       - name: Unit tests on Python ${{ steps.python.outputs.python-version }}
         run: pytest -q
 
