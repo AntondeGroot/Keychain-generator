@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import numpy as np
 from PIL import Image
 from scipy import ndimage
+from skimage.morphology import skeletonize
 
 from keychain.picture.blends import without_edge_blends
 from keychain.picture.connections import with_connections
@@ -183,7 +184,7 @@ def _with_printable_areas(labels: np.ndarray, inside: np.ndarray, ink: int, radi
         _give_to_neighbours(labels, loose, inside)
         strips = _strips(area & ~loose & ~opened(area, radius_px), radius_px)
         may_take = inside if index == ink else inside & (labels != ink)
-        labels[grown(strips, radius_px) & may_take] = index
+        labels[_widened(strips, area, radius_px) & may_take] = index
     return labels
 
 
@@ -200,6 +201,26 @@ def _strips(narrow: np.ndarray, radius_px: float) -> np.ndarray:
     sizes = np.bincount(pieces.ravel())
     long_enough = np.nonzero(sizes >= (STRIP_LINES * 2 * radius_px) ** 2)[0]
     return np.isin(pieces, long_enough) & (pieces > 0)
+
+
+def _widened(strips: np.ndarray, area: np.ndarray, radius_px: float) -> np.ndarray:
+    """Each strip widened by what it lacks of a printed line, so that all come out a line wide.
+
+    Widening by a whole line instead would make a strip just under a line nearly twice as wide
+    as one just over it: lines drawn about as wide as each other would print unevenly."""
+    pieces, count = ndimage.label(strips)
+    if not count:
+        return strips
+    # Halfway across a strip, the distance to the first pixel beyond its edge is half its width,
+    # plus half a pixel.
+    middle = skeletonize(strips)
+    depth = ndimage.distance_transform_edt(area)
+    half_widths = np.asarray(ndimage.median(depth, np.where(middle, pieces, 0), range(1, count + 1))) - 0.5
+    lacking_px = np.ceil(np.maximum(radius_px - half_widths, 0))
+    widened = strips.copy()
+    for distance_px in np.unique(lacking_px):
+        widened |= grown(np.isin(pieces, np.flatnonzero(lacking_px == distance_px) + 1), distance_px)
+    return widened
 
 
 def _give_to_neighbours(labels: np.ndarray, loose: np.ndarray, inside: np.ndarray) -> None:
