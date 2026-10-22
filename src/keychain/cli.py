@@ -9,7 +9,7 @@ from PIL import Image, UnidentifiedImageError
 from keychain.design import design_keychain
 from keychain.files import open_folder, write_keychain_files
 from keychain.picture.detection import detect_colours
-from keychain.picture.palette import Colour, parse_colour, with_unique_names
+from keychain.picture.palette import Colour, parse_colour, rim_colour, with_unique_names
 from keychain.project import read_project
 from keychain.spec import KeychainSpec
 from keychain.web.api import designed_from_request, file_name
@@ -79,14 +79,7 @@ def _palette(args, image: Image.Image) -> list[Colour]:
 
 
 def _rim_colour(args, palette: list[Colour]) -> Colour | None:
-    if args.rim_colour is None:
-        return None
-    named = [colour for colour in palette if colour.name == args.rim_colour]
-    if not named:
-        raise ValueError(
-            f"--rim-colour '{args.rim_colour}' is not one of the colours: {_as_arguments(palette)}"
-        )
-    return named[0]
+    return None if args.rim_colour is None else rim_colour(args.rim_colour, palette)
 
 
 def _as_arguments(palette: list[Colour]) -> str:
@@ -145,7 +138,9 @@ def _add_make(commands) -> None:
     )
     parser.add_argument("--hole", type=float, help=f"keyring hole diameter, mm (default {defaults.hole_mm})")
     parser.add_argument(
-        "--rim-colour", help="name of the colour for the rim, the ring and the core; ink if left out"
+        "--rim-colour",
+        help="colour for the rim, the ring and the core: one of the colours by name, or any as "
+        "'#2e7d32'; ink if left out",
     )
     parser.add_argument("--out", type=Path, default=Path("out"))
     parser.add_argument("--open", action="store_true", help="show the output folder when done")

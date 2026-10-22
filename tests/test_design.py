@@ -5,7 +5,7 @@ from shapely.geometry import Point
 
 from keychain.design import design_keychain
 from keychain.picture.painted import Drawing, PaintedMask, Painting
-from keychain.picture.palette import Colour, parse_colour
+from keychain.picture.palette import Colour, parse_colour, rim_colour
 
 PALETTE = [parse_colour(text) for text in ("white=#ffffff", "black=#000000", "red=#e03838")]
 
@@ -121,3 +121,17 @@ def test_a_white_rim_joins_the_white_part_and_the_core_takes_the_rim_colour(spec
 
     assert rim_and_core(None) == ("black", black.hex)
     assert rim_and_core(white) == ("white", white.hex)
+
+
+def test_a_rim_in_a_colour_the_picture_does_not_have_is_a_part_of_its_own(spec):
+    # A green rim round a red disc: green is no colour of the picture, but still gets printed.
+    keychain = design_keychain(
+        _red_disc_with_black_outline(), PALETTE, spec, rim_colour=rim_colour("#2e7d32", PALETTE)
+    )
+
+    layers = {layer.name: layer for layer in keychain.face}
+    assert set(layers) == {"red", "black", "green"}
+    assert layers["green"].colour == "#2e7d32"
+    picture = layers["red"].shape.union(layers["black"].shape)
+    assert layers["green"].shape.area == pytest.approx(keychain.outline.shape.area - picture.area, abs=1e-3)
+    assert {part.name for part in keychain.parts} >= {"front-green", "back-green", "core"}

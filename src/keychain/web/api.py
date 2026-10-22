@@ -14,7 +14,7 @@ from keychain.files import keychain_files, zipped
 from keychain.picture.detection import detect_colours
 from keychain.picture.handdrawn import Shape
 from keychain.picture.painted import ColourPaint, DetailMask, Drawing, PaintedMask, Painting
-from keychain.picture.palette import Colour, parse_colour, with_unique_names
+from keychain.picture.palette import Colour, parse_colour, rim_colour, with_unique_names
 from keychain.spec import KeychainSpec
 from keychain.web.tracecache import TraceCache
 
@@ -32,7 +32,13 @@ class Response:
 
 
 def colours_action(request: dict) -> Response:
-    found = detect_colours(_image(request["image"]))
+    """The colours in the picture, leaving out the painted background and the known colours
+    the page sends, such as ones chosen by hand."""
+    image = _image(request["image"])
+    mask = request.get("mask")
+    background = PaintedMask.from_image(_image(mask), image.size).background if mask else None
+    known = [parse_colour(colour["hex"]) for colour in request.get("known") or []]
+    found = detect_colours(image, background, known)
     return _json({"colours": [{"name": colour.name, "hex": colour.hex} for colour in found]})
 
 
@@ -104,14 +110,9 @@ def _connections(lines: list) -> tuple:
 
 
 def _rim_colour(request: dict, palette: list[Colour]) -> Colour | None:
-    """The colour named for the rim, or none for ink."""
-    name = request.get("rim")
-    if not name:
-        return None
-    named = [colour for colour in palette if colour.name == name]
-    if not named:
-        raise ValueError(f"the rim colour '{name}' is not one of the colours")
-    return named[0]
+    """The colour chosen for the rim, by name or as '#2e7d32'; none for ink."""
+    text = request.get("rim")
+    return rim_colour(text, palette) if text else None
 
 
 def _spec(values: dict) -> KeychainSpec:

@@ -46,7 +46,8 @@
         </div>
         <p class="hint">Where the picture's background is guessed wrong.</p>
         <dl class="tool-help">
-          <div><dt>Background</dt><dd>Leave this part out.</dd></div>
+          <div><dt>Background</dt><dd>Leave this part out. The colours are then found again in what is left;
+            the ones you added or changed stay.</dd></div>
           <div><dt>Keep</dt><dd>Part of the keychain, even if it looks like background.</dd></div>
           <div><dt>Erase</dt><dd>Takes off background and keep.</dd></div>
         </dl>
@@ -89,9 +90,15 @@
         <label>Core (mm) <input type="number" data-spec="core_mm" value="1.4" min="0.2" step="0.1"></label>
         <label>Rim (mm) <input type="number" data-spec="rim_mm" value="1.5" min="0.4" step="0.1"></label>
         <label>Hole (mm) <input type="number" data-spec="hole_mm" value="4" min="1" step="0.5"></label>
-        <label>Rim colour <select id="rim"><option value="">ink (darkest)</option></select></label>
+        <label>Rim colour
+          <span class="row">
+            <select id="rim"><option value="">ink (darkest)</option></select>
+            <input type="color" id="rim-swatch" value="#2e7d32" aria-label="Rim colour, or pick any other">
+          </span>
+        </label>
         <p class="hint">The rim, the ring and the core between the two faces. A light rim keeps the picture's
-          outer lines visible, such as strands of hair.</p>
+          outer lines visible, such as strands of hair. Click the swatch for any other colour, such as
+          green: a filament of its own.</p>
         <label>Curve tolerance (mm)
           <input type="range" data-spec="curve_tolerance_mm" min="0.02" max="0.3" step="0.02" value="0.08">
         </label>

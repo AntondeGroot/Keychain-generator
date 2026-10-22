@@ -27,7 +27,7 @@ const BRUSHES = {
 
 export class Painter {
   /** layers: the painting canvases by name; overlays: the canvases for the curves and, on top and
-   * receiving the pointer, the connect lines. */
+   * receiving the pointer, the connect lines. onPainted is told the brush after a stroke. */
   constructor(stack, pictureCanvas, layers, overlays, onPainted) {
     this.stack = stack;
     this.picture = pictureCanvas;
@@ -178,7 +178,7 @@ export class Painter {
     if (this.editor.release()) this.onPainted();
     if (!this.last) return;
     this.last = null;
-    this.onPainted();
+    this.onPainted(this.tool);
   }
 
   #stroke(from, to) {
