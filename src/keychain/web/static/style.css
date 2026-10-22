@@ -151,6 +151,7 @@ select { font: inherit; max-width: 160px; }
 #lines-canvas { opacity: 1; pointer-events: auto; cursor: crosshair; touch-action: none; }
 .stack.picking #lines-canvas { cursor: copy; }
 .stack.on-handle #lines-canvas { cursor: move; }
+.stack.no-tool #lines-canvas { cursor: default; }
 .tool svg { width: 16px; height: 16px; vertical-align: -3px; }
 
 .preview { background: var(--checker); min-height: 200px; }
