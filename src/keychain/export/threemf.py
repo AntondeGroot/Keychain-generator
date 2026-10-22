@@ -8,7 +8,7 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 import trimesh
 
-from keychain.export.stl import extruded
+from keychain.export.stl import part_body
 from keychain.shape.stack import Part
 
 MODEL_PATH = "3D/3dmodel.model"
@@ -72,7 +72,7 @@ def _part_object(part_id: int, material_index: int, part: Part) -> str:
         "pid": MATERIALS_ID,
         "pindex": material_index,
     }
-    mesh = extruded(part.shape, part.bottom_mm, part.top_mm)
+    mesh = part_body(part)
     return f"{_open_tag('object', **attributes)}<mesh>{_mesh_xml(mesh)}</mesh></object>\n"
 
 

@@ -7,11 +7,23 @@ import trimesh
 from shapely.geometry import LinearRing, Polygon
 from shapely.geometry.base import BaseGeometry
 
+from keychain.shape.stack import Part
+
 # Specks smaller than this cannot be printed and only make the slicer complain.
 MIN_PART_AREA_MM2 = 0.01
 # STL and 3MF readers store 32-bit floats, about 4 µm apart at 50 mm. Corners closer than
 # that merge on load and leave a broken edge, so they are snapped to a coarser grid first.
 GRID_MM = 1e-4
+
+
+def part_body(part: Part) -> trimesh.Trimesh:
+    """The part as one body, however many heights its slabs have, so a slicer shows one piece per
+    filament. Slabs that touch share a face, which only a true union removes."""
+    bodies = [extruded(slab.shape, slab.bottom_mm, slab.top_mm) for slab in part.slabs]
+    bodies = [body for body in bodies if len(body.faces)]
+    if len(bodies) == 1:
+        return bodies[0]
+    return trimesh.boolean.union(bodies, engine="manifold")
 
 
 def extruded(shape: BaseGeometry, bottom_mm: float, top_mm: float) -> trimesh.Trimesh:

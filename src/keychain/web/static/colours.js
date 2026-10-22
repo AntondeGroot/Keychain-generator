@@ -1,5 +1,6 @@
 // The editable list of filament colours: a swatch, a name, a paint and a remove button per colour.
 // Colours found in the picture can be found again; ones added or changed by hand stay.
+// A colour can be a shade of another instead of a filament: a dark or light red, printed in red.
 
 const NAME_PATTERN = "[a-z0-9_\\-]*"; // names end up in file names, so only these characters
 
@@ -11,15 +12,22 @@ export class ColourList {
     this.colours = [];
   }
 
-  /** Colours found in the picture, or as saved in a project. */
+  /** Colours found in the picture, or as saved in a project: as get() gives them. */
   set(colours) {
-    this.colours = colours.map(({ name, hex, found = false }) => ({ name, hex, found }));
+    this.colours = colours.map(({ name, hex, found = false, shade }) => ({
+      name,
+      hex,
+      found,
+      shade: shade ? { tone: shade.tone, of: colours[shade.of]?.hex } : null,
+    }));
     this.#render();
   }
 
   /** The colours found again: these replace the ones found before, the ones by hand stay. */
   refound(colours) {
-    this.set([...this.byHand(), ...colours.map(({ name, hex }) => ({ name, hex, found: true }))]);
+    const found = colours.map(({ name, hex }) => ({ name, hex, found: true, shade: null }));
+    this.colours = [...this.colours.filter((colour) => !colour.found), ...found];
+    this.#render();
   }
 
   byHand() {
@@ -27,13 +35,19 @@ export class ColourList {
   }
 
   add(hex, name = "") {
-    this.colours.push({ name, hex, found: false });
+    this.colours.push({ name, hex, found: false, shade: null });
     this.#render();
     this.onChange();
   }
 
+  /** A shade names the colour it is of by its place in the list; one whose colour is gone is
+   * a colour of its own again. */
   get() {
-    return this.colours.map(({ name, hex, found }) => (found ? { name, hex, found } : { name, hex }));
+    return this.colours.map(({ name, hex, found, shade }) => {
+      const colour = found ? { name, hex, found } : { name, hex };
+      const of = shade ? this.colours.findIndex((other) => other.hex === shade.of && !other.shade) : -1;
+      return of >= 0 ? { ...colour, shade: { of, tone: shade.tone } } : colour;
+    });
   }
 
   /** The names as the server will use them: the typed name, or empty for an automatic one. */
@@ -71,12 +85,36 @@ export class ColourList {
     remove.addEventListener("click", () => this.#remove(index));
 
     const row = document.createElement("li");
-    row.append(swatch, name, paint, remove);
+    row.append(swatch, name, this.#shadeChoice(colour, index), paint, remove);
     return row;
   }
 
+  /** Its own filament, or a darker or lighter shade of another colour that is one. */
+  #shadeChoice(colour, index) {
+    const filaments = this.colours.filter((other) => other !== colour && !other.shade);
+    const chosen = colour.shade ? `${colour.shade.tone} ${colour.shade.of}` : "";
+    const option = (label, value) => new Option(label, value, false, value === chosen);
+    const shades = filaments.flatMap(({ name, hex }) =>
+      ["dark", "light"].map((tone) => option(`${tone} ${name || hex}`, `${tone} ${hex}`)),
+    );
+    const select = document.createElement("select");
+    select.append(option("own filament", ""), ...shades);
+    select.disabled = this.colours.some((other) => other.shade?.of === colour.hex); // others are its shades
+    select.setAttribute("aria-label", `Colour ${index + 1} is printed as`);
+    select.addEventListener("change", () => {
+      const [tone, of] = select.value.split(" ");
+      this.#update(index, { shade: select.value ? { tone, of } : null });
+    });
+    return select;
+  }
+
+  /** A shade follows its colour when that colour changes. The rows are drawn again, as the
+   * shade choices name the colours and leave out shades. */
   #update(index, change) {
+    const before = this.colours[index].hex;
+    if (change.hex) for (const other of this.colours) if (other.shade?.of === before) other.shade.of = change.hex;
     Object.assign(this.colours[index], change, { found: false });
+    this.#render();
     this.onChange();
   }
 
