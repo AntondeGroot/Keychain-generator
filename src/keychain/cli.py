@@ -44,6 +44,9 @@ def colours(args) -> None:
 
 def make(args) -> None:
     keychain, name = _from_project(args) if args.project else _from_picture(args)
+    warning = keychain.resolution.warning()
+    if warning:
+        print(f"note: {warning}")
     folder = write_keychain_files(name, keychain, args.out)
     print(folder.resolve())
     if args.open:

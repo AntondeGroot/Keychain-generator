@@ -92,9 +92,10 @@ def _inside(
     background = _background(labels, rgba)
     drawn = _drawn(labels, rgba, background) | mask.keep | painting.colours.painted_enlarged(factor)
     inside = _picture_area(drawn, spec.gap_mm / 2 / mm_per_px) & ~mask.background
+    line_radius_px = spec.min_line_mm / 2 / mm_per_px
     if background is None:
-        return inside
-    return inside & ~_outer_notches(labels, inside, background, spec.min_line_mm / 2 / mm_per_px)
+        return inside & ~_see_through(inside & ~drawn, inside, line_radius_px)
+    return inside & ~_outer_notches((labels == background) & inside, inside, line_radius_px)
 
 
 def _rgba(image: Image.Image) -> np.ndarray:
@@ -130,16 +131,32 @@ def _picture_area(drawn: np.ndarray, gap_radius_px: float) -> np.ndarray:
     return ndimage.binary_fill_holes(closed(drawn, gap_radius_px))
 
 
-def _outer_notches(labels: np.ndarray, inside: np.ndarray, background: int, radius_px: float) -> np.ndarray:
+def _outer_notches(background: np.ndarray, inside: np.ndarray, radius_px: float) -> np.ndarray:
     """Background in narrow notches along the outside, such as between the tips of hair strands.
 
     Closing the openings in the outline also fills these, but they are background, not part of
     the picture: kept in, they are too narrow to print and the strands would merge."""
-    area = (labels == background) & inside
+    pieces, wide, touching_outside = _background_pieces(background, inside, radius_px)
+    return np.isin(pieces, np.setdiff1d(touching_outside, wide)) & (pieces > 0)
+
+
+def _see_through(see_through: np.ndarray, inside: np.ndarray, radius_px: float) -> np.ndarray:
+    """In a picture with a transparent background, the see-through parts that closing the
+    outline took in: in notches along the outside, such as between whiskers, and areas closed
+    off, such as between a dog's legs. They are no part of the picture, so the rim comes there,
+    in its own colour; kept in, they took the colour hidden under the transparent pixels, often
+    black. Only pinholes stay, too narrow for a rim to fit in."""
+    pieces, wide, touching_outside = _background_pieces(see_through, inside, radius_px)
+    return np.isin(pieces, np.union1d(touching_outside, wide)) & (pieces > 0)
+
+
+def _background_pieces(area: np.ndarray, inside: np.ndarray, radius_px: float):
+    """The connected pieces of background inside the picture, the ones wider than a line, and
+    the ones touching the outside."""
     pieces, _ = ndimage.label(area)
     wide = np.unique(pieces[opened(area, radius_px)])
     touching_outside = np.unique(pieces[area & grown(~inside, 1)])
-    return np.isin(pieces, np.setdiff1d(touching_outside, wide)) & (pieces > 0)
+    return pieces, wide, touching_outside
 
 
 def _with_printable_areas(labels: np.ndarray, inside: np.ndarray, ink: int, radius_px: float) -> np.ndarray:

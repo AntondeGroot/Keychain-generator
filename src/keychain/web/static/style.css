@@ -154,6 +154,16 @@ select { font: inherit; max-width: 160px; }
 .tool svg { width: 16px; height: 16px; vertical-align: -3px; }
 
 .preview { background: var(--checker); min-height: 200px; }
+/* Something about the picture worth knowing, such as too few pixels for its size. */
+.warning {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-left: 4px solid var(--guide-edge);
+  border-radius: 6px;
+  background: var(--guide-background);
+  color: var(--guide-text);
+  font-size: 13px;
+}
 .preview svg { display: block; width: 100%; height: auto; }
 .preview.placing svg { cursor: crosshair; }
 

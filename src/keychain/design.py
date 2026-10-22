@@ -12,6 +12,7 @@ from PIL import Image
 from keychain.picture.painted import Painting
 from keychain.picture.palette import Colour
 from keychain.picture.regions import colour_map
+from keychain.picture.resolution import Resolution
 from keychain.shape.faces import Sheets, face_layers, traced_sheets, with_rim_in
 from keychain.shape.layer import Layer
 from keychain.shape.outline import Outline, keychain_outline
@@ -24,6 +25,7 @@ class Keychain:
     face: list[Layer]  # the colours as seen from the front
     outline: Outline
     parts: list[Part]
+    resolution: Resolution
 
 
 @dataclass(frozen=True)
@@ -32,6 +34,7 @@ class TracedPicture:
 
     sheets: Sheets
     ink: int  # palette index of the lines
+    resolution: Resolution
 
 
 def design_keychain(
@@ -53,7 +56,11 @@ def traced_picture(
     image: Image.Image, palette: list[Colour], spec: KeychainSpec, painting: Painting | None = None
 ) -> TracedPicture:
     colours = colour_map(image, palette, spec, painting)
-    return TracedPicture(traced_sheets(colours, spec), colours.ink)
+    return TracedPicture(
+        traced_sheets(colours, spec),
+        colours.ink,
+        Resolution(spec.width_mm, colours.mm_per_px * colours.factor),
+    )
 
 
 def assembled_keychain(
@@ -71,4 +78,4 @@ def assembled_keychain(
     rim = rim_colour or ink
     if rim != ink:
         face = with_rim_in(face, outline.shape.difference(sheets.picture), rim)
-    return Keychain(face, outline, stacked_parts(face, outline.shape, rim, spec))
+    return Keychain(face, outline, stacked_parts(face, outline.shape, rim, spec), traced.resolution)

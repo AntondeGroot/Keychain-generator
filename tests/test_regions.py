@@ -31,3 +31,14 @@ def test_background_between_strand_tips_stays_outside_while_an_enclosed_face_sta
     face, notch = pixel(55, 95), pixel(141, 92)
     assert colours.inside[face] and colours.labels[face] == WHITE  # closed despite the gap
     assert not colours.inside[notch]  # background, which the rim will cover, not the picture
+
+
+def test_a_see_through_area_closed_off_by_the_picture_is_left_for_the_rim(spec):
+    # Like the gap between a dog's legs, on a transparent background that hides black under it.
+    image = Image.new("RGBA", (200, 200), (0, 0, 0, 0))
+    ImageDraw.Draw(image).ellipse((20, 20, 180, 180), fill="#de7e31", outline="black", width=4)
+    ImageDraw.Draw(image).ellipse((70, 70, 130, 130), fill=(0, 0, 0, 0))
+    colours = colour_map(image, PALETTE, spec)
+
+    middle = 100 * colours.factor
+    assert not colours.inside[middle, middle]  # not the black hidden under it
