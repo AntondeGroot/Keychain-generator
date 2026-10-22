@@ -46,7 +46,7 @@ export class RimChoice {
 
   #showColour() {
     const chosen = this.select.value;
-    const named = this.colours.find(({ name }) => name === chosen);
+    const named = chosen && this.colours.find(({ name }) => name === chosen); // "" is ink, not a colour without a name
     if (chosen === OTHER) this.swatch.value = this.otherHex;
     else if (named) this.swatch.value = named.hex;
     else if (this.colours.length) this.swatch.value = darkest(this.colours).hex;

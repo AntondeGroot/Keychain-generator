@@ -128,14 +128,16 @@
         <button type="button" id="zoom-reset">Back to 100%</button>
         <label>Brush size <input type="range" id="brush" min="2" max="80" value="20"></label>
       </div>
-      <div class="zoom-viewport" id="zoom-viewport">
-        <div class="stack" id="painter">
-          <canvas id="picture-canvas"></canvas>
-          <canvas id="paint-canvas"></canvas>
-          <canvas id="mask-canvas"></canvas>
-          <canvas id="detail-canvas"></canvas>
-          <canvas id="curves-canvas"></canvas>
-          <canvas id="lines-canvas"></canvas>
+      <div class="fit">
+        <div class="zoom-viewport" id="zoom-viewport">
+          <div class="stack" id="painter">
+            <canvas id="picture-canvas"></canvas>
+            <canvas id="paint-canvas"></canvas>
+            <canvas id="mask-canvas"></canvas>
+            <canvas id="detail-canvas"></canvas>
+            <canvas id="curves-canvas"></canvas>
+            <canvas id="lines-canvas"></canvas>
+          </div>
         </div>
       </div>
       <p class="hint">Red: background, left out. Green: part of the keychain, even if it looks like background.

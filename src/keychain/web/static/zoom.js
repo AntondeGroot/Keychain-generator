@@ -19,6 +19,7 @@ export class PictureZoom {
   /** A new picture: the view takes its shape, back at 100%. */
   fit(width, height) {
     this.viewport.style.aspectRatio = `${width} / ${height}`;
+    this.viewport.style.setProperty("--ratio", String(width / height)); // to fit the room in height too
     this.set(SMALLEST);
   }
 

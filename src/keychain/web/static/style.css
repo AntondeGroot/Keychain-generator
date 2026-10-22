@@ -193,3 +193,20 @@ select { font: inherit; max-width: 160px; }
 @media (prefers-reduced-motion: reduce) {
   .wheel { animation: none; border-color: var(--accent); }
 }
+
+/* Side by side, the page is as tall as the window and only the settings scroll: the picture and
+   the keychain stay in sight, shrunk to fit, while the rim or the ring is changed further down.
+   Last, so these win over the sizes above. */
+@media (min-width: 901px) {
+  body { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
+  main { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+  .controls { overflow-y: auto; min-height: 0; }
+  .controls fieldset { min-width: 0; } /* narrower by the scrollbar, not wider than the column */
+  .canvas-panel { display: flex; flex-direction: column; min-height: 0; }
+  .fit, .preview-frame { flex: 1; min-height: 0; }
+  /* The picture as large as the room allows in both width and height, in its own shape. */
+  .fit { container-type: size; }
+  .zoom-viewport { width: min(100cqw, 100cqh * var(--ratio, 1)); margin: 0 auto; }
+  .preview { height: 100%; }
+  .preview svg { height: 100%; }
+}
