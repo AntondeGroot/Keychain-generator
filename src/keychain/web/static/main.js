@@ -183,9 +183,12 @@ function togglePicking() {
   if (picking) setStatus("Click on the picture to add the colour there.");
 }
 
-function chooseTool(chosen) {
-  for (const button of document.querySelectorAll(".tool")) button.setAttribute("aria-pressed", String(button === chosen));
-  painter.setTool(chosen.dataset.tool);
+/** Chooses the tool, or puts it away when it was already chosen: then dragging over the
+ * picture does nothing, so it cannot be painted on by accident. */
+function chooseTool(button) {
+  const chosen = button.getAttribute("aria-pressed") === "true" ? null : button;
+  for (const tool of document.querySelectorAll(".tool")) tool.setAttribute("aria-pressed", String(tool === chosen));
+  painter.setTool(chosen?.dataset.tool ?? null);
 }
 
 function choosePaintColour(button, hex) {

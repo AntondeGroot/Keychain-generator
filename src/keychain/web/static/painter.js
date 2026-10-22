@@ -114,8 +114,10 @@ export class Painter {
     this.curves.set(edges, shapes);
   }
 
+  /** A brush or a drawing tool by name, or null for none. */
   setTool(tool) {
     this.tool = tool;
+    this.stack.classList.toggle("no-tool", tool === null);
     this.lines.cancel();
     this.curves.cancel();
     if (tool === "edit-splines") this.editor.start();
@@ -155,7 +157,7 @@ export class Painter {
       this.#showGuide();
     } else if (this.tool === "edit-splines") {
       if (this.editor.grab(point)) event.target.setPointerCapture(event.pointerId);
-    } else {
+    } else if (this.tool) {
       event.target.setPointerCapture(event.pointerId);
       this.last = point;
       this.#stroke(point, point);
