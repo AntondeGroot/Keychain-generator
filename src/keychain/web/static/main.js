@@ -3,6 +3,7 @@
 import { ColourList } from "./colours.js";
 import { Painter } from "./painter.js";
 import { Preview } from "./preview.js";
+import { RimChoice } from "./rim.js";
 import { asDataUrl, loadedImage, projectBlob, readProject, saveFile } from "./project.js";
 import { call, isBusy, setStatus, whenBusyChanges } from "./server.js";
 import { PictureZoom } from "./zoom.js";
@@ -13,6 +14,7 @@ const NEW_COLOUR = "#888888";
 const element = (id) => document.getElementById(id);
 const state = { image: null, name: "keychain", hole: null };
 let previewTimer = null;
+let coloursTimer = null;
 let latestRequest = 0;
 
 const painter = new Painter(
@@ -20,12 +22,13 @@ const painter = new Painter(
   element("picture-canvas"),
   { paint: element("paint-canvas"), mask: element("mask-canvas"), detail: element("detail-canvas") },
   { curves: element("curves-canvas"), lines: element("lines-canvas") },
-  schedulePreview,
+  painted,
 );
 painter.onGuide = showGuide;
 const zoom = new PictureZoom(element("zoom-viewport"), element("painter"), zoomChanged);
 const colours = new ColourList(element("colours"), coloursChanged, choosePaintColour);
 const preview = new Preview(element("preview"), placeRing);
+const rim = new RimChoice(element("rim"), element("rim-swatch"), schedulePreview);
 
 element("picture").addEventListener("change", (event) => fromFileInput(event.target, loadPicture));
 element("add-colour").addEventListener("click", () => colours.add(NEW_COLOUR));
@@ -47,7 +50,6 @@ element("download").addEventListener("click", download);
 element("save-project").addEventListener("click", () => saveFile(projectBlob(designRequest()), `${state.name}.keychain.json`));
 element("open-project").addEventListener("change", (event) => fromFileInput(event.target, openProject));
 for (const input of document.querySelectorAll("[data-spec]")) input.addEventListener("change", schedulePreview);
-element("rim").addEventListener("change", schedulePreview);
 for (const button of document.querySelectorAll(".tool")) button.addEventListener("click", () => chooseTool(button));
 whenBusyChanges(updateDownloadButton);
 
@@ -66,7 +68,24 @@ async function loadPicture(file) {
   element("save-project").disabled = false;
   const found = await call("/api/colours", { image: state.image }, "Finding the colours…");
   if (!found) return;
-  colours.set((await found.json()).colours);
+  colours.set((await found.json()).colours.map((colour) => ({ ...colour, found: true })));
+  coloursChanged();
+}
+
+/** Painting background away can take colours with it, such as other characters in a group
+ * picture, so the colours are found again in what is left; the ones chosen by hand stay. */
+function painted(tool) {
+  if (tool !== "background") return schedulePreview();
+  clearTimeout(previewTimer);
+  clearTimeout(coloursTimer);
+  coloursTimer = setTimeout(findColoursAgain, PREVIEW_DELAY_MS);
+}
+
+async function findColoursAgain() {
+  const request = { image: state.image, mask: painter.dataUrl("mask"), known: colours.byHand() };
+  const found = await call("/api/colours", request, "Finding the colours in what is kept…");
+  if (!found) return;
+  colours.refound((await found.json()).colours);
   coloursChanged();
 }
 
@@ -106,7 +125,7 @@ async function openProject(file) {
       if (input.dataset.spec in project.spec) input.value = project.spec[input.dataset.spec];
     }
     coloursChanged();
-    element("rim").value = project.rim ?? "";
+    rim.set(project.rim);
     element("save-project").disabled = false;
   } catch (error) {
     setStatus(error.message, "error");
@@ -122,7 +141,7 @@ function designRequest() {
     detail: painter.dataUrl("detail"),
     paint: painter.dataUrl("paint"),
     ...painter.drawing,
-    rim: element("rim").value || null,
+    rim: rim.value(),
     colours: colours.get(),
     spec,
     hole: state.hole,
@@ -192,11 +211,7 @@ function showGuide(text) {
   if (text) guide.style.minHeight = `${Math.max(before, guide.offsetHeight)}px`;
 }
 
-/** The rim can take any named colour; the list follows the colours, keeping the choice. */
 function coloursChanged() {
-  const rim = element("rim");
-  const chosen = rim.value;
-  const choices = colours.names().map((name) => new Option(name, name, false, name === chosen));
-  rim.replaceChildren(new Option("ink (darkest)", ""), ...choices);
+  rim.follow(colours.get());
   schedulePreview();
 }

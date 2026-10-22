@@ -1,4 +1,5 @@
 // The editable list of filament colours: a swatch, a name, a paint and a remove button per colour.
+// Colours found in the picture can be found again; ones added or changed by hand stay.
 
 const NAME_PATTERN = "[a-z0-9_\\-]*"; // names end up in file names, so only these characters
 
@@ -10,19 +11,29 @@ export class ColourList {
     this.colours = [];
   }
 
+  /** Colours found in the picture, or as saved in a project. */
   set(colours) {
-    this.colours = colours.map(({ name, hex }) => ({ name, hex }));
+    this.colours = colours.map(({ name, hex, found = false }) => ({ name, hex, found }));
     this.#render();
   }
 
+  /** The colours found again: these replace the ones found before, the ones by hand stay. */
+  refound(colours) {
+    this.set([...this.byHand(), ...colours.map(({ name, hex }) => ({ name, hex, found: true }))]);
+  }
+
+  byHand() {
+    return this.colours.filter(({ found }) => !found).map(({ name, hex }) => ({ name, hex }));
+  }
+
   add(hex, name = "") {
-    this.colours.push({ name, hex });
+    this.colours.push({ name, hex, found: false });
     this.#render();
     this.onChange();
   }
 
   get() {
-    return this.colours.map(({ name, hex }) => ({ name, hex }));
+    return this.colours.map(({ name, hex, found }) => (found ? { name, hex, found } : { name, hex }));
   }
 
   /** The names as the server will use them: the typed name, or empty for an automatic one. */
@@ -65,7 +76,7 @@ export class ColourList {
   }
 
   #update(index, change) {
-    Object.assign(this.colours[index], change);
+    Object.assign(this.colours[index], change, { found: false });
     this.onChange();
   }
 

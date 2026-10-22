@@ -47,6 +47,25 @@ def parse_colour(text: str) -> Colour:
     return Colour(name or basic_name(hex_code), hex_code)
 
 
+def rim_colour(text: str, palette: list[Colour]) -> Colour:
+    """A colour of the picture by name, or any colour: '#2e7d32' or 'green=#2e7d32'.
+
+    A colour the picture has as well is that colour, so the rim joins its part. Another takes a
+    name none of the picture's colours has: it is a part of its own, such as a green rim."""
+    named = [colour for colour in palette if colour.name == text]
+    if named:
+        return named[0]
+    if "#" not in text:
+        names = " ".join(colour.name for colour in palette)
+        raise ValueError(f"the rim colour '{text}' is not one of the colours ({names}) nor like '#2e7d32'")
+    colour = parse_colour(text)
+    same = [known for known in palette if known.hex == colour.hex]
+    if same:
+        return same[0]
+    taken = {known.name for known in palette}
+    return colour if colour.name not in taken else Colour(f"{colour.name}-rim", colour.hex)
+
+
 def basic_name(hex_code: str) -> str:
     rgb = Colour("", hex_code).rgb
     return min(BASIC_NAMES, key=lambda name: _distance_squared(BASIC_NAMES[name], rgb))
