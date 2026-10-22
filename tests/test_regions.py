@@ -5,6 +5,7 @@ from keychain.picture.regions import colour_map
 
 PALETTE = [parse_colour(text) for text in ("white=#ffffff", "black=#000000", "orange=#de7e31")]
 WHITE = 0
+BLACK = 1
 
 
 def _dog_face_and_quiff() -> Image.Image:
@@ -42,3 +43,20 @@ def test_a_see_through_area_closed_off_by_the_picture_is_left_for_the_rim(spec):
 
     middle = 100 * colours.factor
     assert not colours.inside[middle, middle]  # not the black hidden under it
+
+
+def test_lines_a_little_under_and_over_a_printed_line_print_about_as_wide(spec):
+    # 25 mm across 161 pixels: the left line is about 0.3 mm, under a printed line (0.4 mm),
+    # and the right one about 0.47 mm. Widened by a whole line, the left one would be 0.7 mm.
+    image = Image.new("RGB", (200, 200), "white")
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((20, 20, 180, 180), fill="#de7e31", outline="black", width=4)
+    draw.rectangle((60, 50, 61, 150), fill="black")
+    draw.rectangle((120, 50, 122, 150), fill="black")
+    colours = colour_map(image, PALETTE, spec)
+
+    row = colours.labels[100 * colours.factor]
+    left, right = (row[x * colours.factor : (x + 30) * colours.factor] for x in (45, 105))
+    widths_mm = [(half == BLACK).sum() * colours.mm_per_px for half in (left, right)]
+    assert 0.4 <= widths_mm[0] <= 0.5
+    assert widths_mm[1] - widths_mm[0] < 0.1
