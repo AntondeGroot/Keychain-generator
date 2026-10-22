@@ -2,7 +2,7 @@
 // It holds exactly what the page sends the server for a preview, so nothing can be left out.
 
 const FORMAT = "keychain-project";
-const VERSION = 1;
+const VERSION = 2; // version 1 had a width for the widest side; now width, height or both
 
 export function projectBlob(request) {
   return new Blob([JSON.stringify({ format: FORMAT, version: VERSION, ...request })], { type: "application/json" });
@@ -18,7 +18,13 @@ export async function readProject(file) {
   }
   if (project.format !== FORMAT) throw new Error(`${file.name} is not a keychain project`);
   if (project.version > VERSION) throw new Error(`${file.name} was saved by a newer version of this page`);
-  return project;
+  return asNewest(project);
+}
+
+/** A width for the widest side, as version 1 saved it, is a square for the picture to fit in. */
+function asNewest(project) {
+  if (project.version >= 2 || project.spec?.width_mm == null) return project;
+  return { ...project, version: VERSION, spec: { ...project.spec, height_mm: project.spec.width_mm } };
 }
 
 export function saveFile(blob, fileName) {

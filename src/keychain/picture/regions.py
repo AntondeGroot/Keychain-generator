@@ -39,6 +39,11 @@ class ColourMap:
         """The curve tolerance at these pixels of the map, after the painted detail areas."""
         return self.detail.tolerances(rows // self.factor, columns // self.factor, tolerance_mm)
 
+    @property
+    def widest_mm(self) -> float:
+        """The widest side of the picture as printed."""
+        return max(_size_px(self.inside)) * self.mm_per_px
+
 
 def colour_map(
     image: Image.Image, palette: list[Colour], spec: KeychainSpec, painting: Painting | None = None
@@ -55,7 +60,7 @@ def colour_map(
     # the clean-up leaves the drawn shapes as they are.
     labels, inside, drawn = with_curves(labels, inside, painting.drawing, palette, factor, rough_mm_per_px)
     # Closing gaps can make the picture a little larger, so the exact scale is measured after.
-    mm_per_px = spec.width_mm / _widest_side_px(inside)
+    mm_per_px = spec.mm_per_px(*_size_px(inside))
     line_radius_px = spec.min_line_mm / 2 / mm_per_px
     labels = without_edge_blends(labels, inside, palette, line_radius_px)
     labels, inside = with_connections(
@@ -71,9 +76,10 @@ def _enlargement(
     """How many times to enlarge the picture, and roughly how many mm a pixel then is."""
     small = _rgba(image)
     labels = nearest_colours(small[..., :3], palette)
-    side_px = _widest_side_px(painting.mask.applied(_drawn(labels, small, _background(labels, small))))
-    factor = max(1, math.ceil(spec.width_mm / side_px / TARGET_MM_PER_PX))
-    return factor, spec.width_mm / (side_px * factor)
+    kept = painting.mask.applied(_drawn(labels, small, _background(labels, small)))
+    mm_per_px = spec.mm_per_px(*_size_px(kept))
+    factor = max(1, math.ceil(mm_per_px / TARGET_MM_PER_PX))
+    return factor, mm_per_px / factor
 
 
 def _inside(
@@ -118,11 +124,12 @@ def _drawn(labels: np.ndarray, rgba: np.ndarray, background: int | None) -> np.n
     return labels != background
 
 
-def _widest_side_px(mask: np.ndarray) -> int:
+def _size_px(mask: np.ndarray) -> tuple[int, int]:
+    """The width and height of what the mask covers."""
     rows, columns = np.nonzero(mask)
     if not len(rows):
         raise ValueError("the picture is empty: every pixel looks like the background")
-    return max(np.ptp(rows), np.ptp(columns)) + 1
+    return int(np.ptp(columns)) + 1, int(np.ptp(rows)) + 1
 
 
 def _picture_area(drawn: np.ndarray, gap_radius_px: float) -> np.ndarray:

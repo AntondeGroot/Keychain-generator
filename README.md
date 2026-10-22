@@ -93,7 +93,8 @@ lines, and unless `--rim-colour` says otherwise also the rim, the ring and the c
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--width` | `50` | widest side of the picture in mm, a guide so its lines are printable; the rim comes round it |
+| `--width` | `50` | picture width in mm, without the rim that comes round it; also a guide so its lines are printable |
+| `--height` | | picture height in mm; alone it sets the height only, with `--width` the picture fits within both |
 | `--thickness` | `3.0` | total thickness in mm |
 | `--core` | `1.4` | middle layer in mm, in the rim colour; the faces share the rest |
 | `--rim` | `1.5` | border around the picture in mm |

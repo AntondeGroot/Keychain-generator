@@ -6,6 +6,7 @@ from shapely.geometry import Point
 from keychain.design import design_keychain
 from keychain.picture.painted import Drawing, PaintedMask, Painting
 from keychain.picture.palette import Colour, parse_colour, rim_colour
+from keychain.spec import KeychainSpec
 
 PALETTE = [parse_colour(text) for text in ("white=#ffffff", "black=#000000", "red=#e03838")]
 
@@ -26,6 +27,17 @@ def test_face_colours_tile_the_keychain_and_the_background_is_left_out(spec):
     assert shapes["red"].union(shapes["black"]).symmetric_difference(keychain.outline.shape).area < 1e-3
     min_x, _, max_x, _ = keychain.outline.shape.bounds
     assert max_x - min_x == pytest.approx(spec.width_mm + 2 * spec.rim_mm, abs=0.1)  # the rim comes round
+
+
+def test_a_picture_given_a_width_and_a_height_fits_within_both():
+    # Twice as wide as high: in a box 30 mm wide and 10 mm high, the height decides.
+    image = Image.new("RGB", (240, 140), "white")
+    ImageDraw.Draw(image).ellipse((20, 20, 219, 119), fill="#e03838", outline="black", width=6)
+
+    keychain = design_keychain(image, PALETTE, KeychainSpec(width_mm=30, height_mm=10))
+
+    min_x, min_y, max_x, max_y = keychain.picture.bounds
+    assert (max_x - min_x, max_y - min_y) == pytest.approx((20, 10), abs=0.1)
 
 
 def test_background_painted_across_an_outline_removes_only_the_stroke(spec):

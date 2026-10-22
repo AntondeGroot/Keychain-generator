@@ -19,7 +19,7 @@ from keychain.spec import KeychainSpec
 from keychain.web.tracecache import TraceCache
 
 MAX_PICTURE_PX = 4000  # larger pictures take minutes, and far more detail than 5 cm can show
-SPEC_FIELDS = ("width_mm", "thickness_mm", "core_mm", "rim_mm", "hole_mm", "curve_tolerance_mm")
+SPEC_FIELDS = ("width_mm", "height_mm", "thickness_mm", "core_mm", "rim_mm", "hole_mm", "curve_tolerance_mm")
 JSON = "application/json"
 TRACED = TraceCache()  # the server keeps running, so the last traced pictures can be kept
 
@@ -44,7 +44,7 @@ def colours_action(request: dict) -> Response:
 
 def preview_action(request: dict) -> Response:
     keychain = designed_from_request(request)
-    svg = face_svg(keychain.face, keychain.outline.shape)
+    svg = face_svg(keychain.face, keychain.outline.shape, keychain.picture)
     hole = list(keychain.outline.hole_centre)
     return _json({"svg": svg, "hole": hole, "warning": keychain.resolution.warning()})
 
@@ -117,7 +117,12 @@ def _rim_colour(request: dict, palette: list[Colour]) -> Colour | None:
 
 
 def _spec(values: dict) -> KeychainSpec:
-    return KeychainSpec(**{field: float(values[field]) for field in SPEC_FIELDS if field in values})
+    """The sizes sent, the others left as they are. A height alone sets the height only, not the
+    default width as well."""
+    fields = {field: float(values[field]) for field in SPEC_FIELDS if values.get(field) is not None}
+    if "height_mm" in fields:
+        fields.setdefault("width_mm", None)
+    return KeychainSpec(**fields)
 
 
 def _image(data_url: str) -> Image.Image:

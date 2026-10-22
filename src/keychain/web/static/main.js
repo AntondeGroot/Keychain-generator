@@ -4,6 +4,7 @@ import { ColourList } from "./colours.js";
 import { Painter } from "./painter.js";
 import { Preview } from "./preview.js";
 import { RimChoice } from "./rim.js";
+import { PictureSize } from "./size.js";
 import { asDataUrl, loadedImage, projectBlob, readProject, saveFile } from "./project.js";
 import { call, isBusy, setStatus, whenBusyChanges } from "./server.js";
 import { PictureZoom } from "./zoom.js";
@@ -29,6 +30,8 @@ const zoom = new PictureZoom(element("zoom-viewport"), element("painter"), zoomC
 const colours = new ColourList(element("colours"), coloursChanged, choosePaintColour);
 const preview = new Preview(element("preview"), placeRing);
 const rim = new RimChoice(element("rim"), element("rim-swatch"), schedulePreview);
+const sides = ["width", "height"].map((side) => ({ tick: element(`by-${side}`), input: element(side) }));
+const size = new PictureSize(sides, schedulePreview);
 
 element("picture").addEventListener("change", (event) => fromFileInput(event.target, loadPicture));
 element("add-colour").addEventListener("click", () => colours.add(NEW_COLOUR));
@@ -124,8 +127,9 @@ async function openProject(file) {
     await painter.restore({ mask: project.mask, detail: project.detail, paint: project.paint }, project);
     colours.set(project.colours);
     for (const input of document.querySelectorAll("[data-spec]")) {
-      if (input.dataset.spec in project.spec) input.value = project.spec[input.dataset.spec];
+      if (project.spec[input.dataset.spec] != null) input.value = project.spec[input.dataset.spec];
     }
+    size.set(project.spec);
     coloursChanged();
     rim.set(project.rim);
     element("save-project").disabled = false;
@@ -136,7 +140,9 @@ async function openProject(file) {
 
 function designRequest() {
   const spec = {};
-  for (const input of document.querySelectorAll("[data-spec]")) spec[input.dataset.spec] = Number(input.value);
+  for (const input of document.querySelectorAll("[data-spec]")) {
+    spec[input.dataset.spec] = input.disabled ? null : Number(input.value); // a side not ticked follows from the picture
+  }
   return {
     image: state.image,
     mask: painter.dataUrl("mask"),

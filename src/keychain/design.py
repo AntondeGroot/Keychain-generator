@@ -8,6 +8,7 @@ the picture keeps its width, and the rim comes round it."""
 from dataclasses import dataclass
 
 from PIL import Image
+from shapely.geometry.base import BaseGeometry
 
 from keychain.picture.painted import Painting
 from keychain.picture.palette import Colour
@@ -23,6 +24,7 @@ from keychain.spec import KeychainSpec
 @dataclass(frozen=True)
 class Keychain:
     face: list[Layer]  # the colours as seen from the front
+    picture: BaseGeometry  # without the rim and the ring
     outline: Outline
     parts: list[Part]
     resolution: Resolution
@@ -59,7 +61,7 @@ def traced_picture(
     return TracedPicture(
         traced_sheets(colours, spec),
         colours.ink,
-        Resolution(spec.width_mm, colours.mm_per_px * colours.factor),
+        Resolution(colours.widest_mm, colours.mm_per_px * colours.factor),
     )
 
 
@@ -78,4 +80,5 @@ def assembled_keychain(
     rim = rim_colour or ink
     if rim != ink:
         face = with_rim_in(face, outline.shape.difference(sheets.picture), rim)
-    return Keychain(face, outline, stacked_parts(face, outline.shape, rim, spec), traced.resolution)
+    parts = stacked_parts(face, outline.shape, rim, spec)
+    return Keychain(face, sheets.picture, outline, parts, traced.resolution)
