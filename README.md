@@ -2,6 +2,24 @@
 
 Turns a picture (PNG or JPEG) into a double-sided, multi-colour keychain for 3D printing.
 
+----------------
+
+My process of making 3D printable keychains based on cartoons was as follows:
+
+- find a cartoon image with thick enough lines and a clear background
+- convert the image to SVG
+- convert the SVG to DXF
+- import the DXF into Onshape and hope that the conversion processes worked good enough.
+- if parts were missing you had to redraw those parts
+- if you were unlucky you had to draw the entire image from scratch using splines, which could take up a good amount of time.
+- then you had to extrude the entire image to create a center of solid color. This would make it strong, and impossible to 'pop out' parts of the keychain.
+- then you had to extrude all colors, color by color, and remove the center area from those.
+- if it had text you had to extrude it only 1 way, rotate it, and cut it out of solids on the other side, otherwise the text will be mirrored.
+- ...
+
+This project makes that a lot easier, maybe drawing a few splines, and then you have your STL / 3MF files
+----------------
+
 The picture's colours are matched to your filaments, cleaned up so every line and area is at
 least 0.4 mm wide, and traced into smooth outlines. Around it comes a black rim with a tab
 and a keyring hole. The keychain is 3 mm thick:
