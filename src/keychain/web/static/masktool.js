@@ -1,0 +1,146 @@
+// Marking background and keep, or erasing them: the action is the tool in hand, and the method
+// says how it is applied: painting with the brush, or drawing a spline, a circle or a rectangle
+// round an area. The shape last drawn or clicked shows its sizes, to type exactly. The fillet
+// rounds the rectangle corners chosen with it, all at once. The dimension puts a size on the
+// picture, to type there, and keeps it while the shape's handles are dragged.
+
+import { DimensionInput } from "./dimensioninput.js";
+import { inMm } from "./dimensions.js";
+import { MaskHistory } from "./maskhistory.js";
+import { MaskShapes } from "./maskshapes.js";
+import { resize } from "./shapekinds.js";
+import { ShapeSize } from "./shapesize.js";
+
+/** The mask's tools by name, and what each does. */
+export const MASK_ACTIONS = { background: "background", keep: "keep", "erase-mask": "erase", cut: "cut" };
+const CUT_NEEDS_A_SHAPE = "Cut: choose Spline, Circle or Rectangle, and draw the keychain's outline.";
+
+export class MaskTool {
+  /** onChanged hears each change to the mask once it is made, and whether the part marked
+   * background changed with it. */
+  constructor(maskCanvas, shapesCanvas, canvasPxPerScreenPx, onChanged) {
+    this.history = new MaskHistory(maskCanvas);
+    this.shapes = new MaskShapes(shapesCanvas, canvasPxPerScreenPx, this.history, {
+      choose: (step) => this.sizes.show(step),
+      fillet: (corners, added) => this.sizes.fillet(corners, added),
+      dimension: (dimension, at) => this.#typeDimension(dimension, at),
+    });
+    this.sizes = new ShapeSize(document.getElementById("shape-size"), () => this.#resized());
+    this.dimensionInput = new DimensionInput(document.getElementById("dimension-input"), canvasPxPerScreenPx);
+    this.pixelMm = null;
+    this.onChanged = onChanged;
+    this.backgroundPrint = 0; // the background as it was at the last change
+    this.method = "brush";
+    this.stroking = false;
+  }
+
+  /** As a project keeps it, to give back to restore. */
+  get saved() {
+    return this.history.saved;
+  }
+
+  async restore(saved) {
+    await this.history.restore(saved);
+    this.backgroundPrint = this.history.backgroundPrint();
+    this.shapes.choose(null);
+  }
+
+  clear() {
+    this.history.clear();
+    this.backgroundPrint = 0;
+    this.shapes.choose(null);
+  }
+
+  /** The mask as a PNG data URL, or null when nothing was marked. */
+  dataUrl() {
+    return this.history.dataUrl();
+  }
+
+  /** How big a picture pixel is on the keychain, from the preview, for the sizes in mm. */
+  setPixelMm(pixelMm) {
+    this.pixelMm = pixelMm;
+    this.sizes.setScale(pixelMm);
+    this.shapes.pixelMm = pixelMm;
+    this.shapes.draw();
+  }
+
+  guide(action) {
+    if (this.method === "brush") return action === "cut" ? CUT_NEEDS_A_SHAPE : "";
+    return this.shapes.guide(action, this.method);
+  }
+
+  /** Puts the shapes' outlines away while none of the mask's tools is in hand. */
+  inHand(inHand) {
+    this.shapes.show(inHand);
+  }
+
+  setMethod(method) {
+    this.method = method;
+    this.dimensionInput.close();
+    this.shapes.cancel();
+    this.shapes.choose(null);
+    this.sizes.setFilleting(method === "fillet");
+  }
+
+  /** True when the pointer should stay with the picture until let go: painting or dragging. */
+  down(point, action, brushWidth) {
+    if (this.method !== "brush") {
+      if (this.shapes.down(point, action, this.method)) this.#changed();
+      return this.shapes.holding;
+    }
+    if (action === "cut") return false; // a brush has no outline to cut to
+    this.history.add({ action, stroke: { width: brushWidth, points: [[point.x, point.y]] } });
+    this.stroking = true;
+    return true;
+  }
+
+  move(point) {
+    if (this.stroking) this.history.extendStroke([point.x, point.y]);
+    else if (this.method !== "brush") this.shapes.move(point);
+  }
+
+  /** action: what a shape dragged out marks. */
+  up(action) {
+    const changed = this.shapes.up(action) || this.stroking;
+    this.stroking = false;
+    if (changed) this.#changed();
+  }
+
+  leave(action) {
+    this.up(action);
+    this.shapes.move(null);
+  }
+
+  /** Delete takes off the shape under the pointer, or with the dimension in hand the dimension. */
+  remove() {
+    if (this.method !== "brush" && this.shapes.removeUnderPointer(this.method)) this.#changed();
+  }
+
+  cancel() {
+    this.shapes.cancel();
+    this.dimensionInput.close();
+  }
+
+  #typeDimension(dimension, at) {
+    this.dimensionInput.open(at, inMm(dimension, this.pixelMm), (mm) => {
+      resize(dimension.step, dimension.name, mm / this.pixelMm);
+      this.sizes.show(dimension.step);
+      this.#resized();
+    });
+  }
+
+  /** Taking background off, as much as marking it, changes which colours are left to find. */
+  #changed() {
+    const print = this.history.backgroundPrint();
+    const backgroundChanged = print !== this.backgroundPrint;
+    this.backgroundPrint = print;
+    this.onChanged(backgroundChanged);
+  }
+
+  /** A size typed: the mask is drawn again with the shape at its new size. */
+  #resized() {
+    this.history.draw();
+    this.shapes.draw();
+    this.#changed();
+  }
+}

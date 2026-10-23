@@ -79,13 +79,42 @@
           <button type="button" class="tool" data-tool="background" aria-pressed="true">Background</button>
           <button type="button" class="tool" data-tool="keep" aria-pressed="false">Keep</button>
           <button type="button" class="tool" data-tool="erase-mask" aria-pressed="false">Erase</button>
+          <button type="button" class="tool" data-tool="cut" aria-pressed="false">Cut</button>
         </div>
-        <p class="hint">Where the picture's background is guessed wrong.</p>
+        <div class="row" role="group" aria-label="Mark with">
+          <button type="button" class="method" data-method="brush" aria-pressed="true">Brush</button>
+          <button type="button" class="method" data-method="spline" aria-pressed="false">Spline</button>
+          <button type="button" class="method" data-method="circle" aria-pressed="false">Circle</button>
+          <button type="button" class="method" data-method="rect" aria-pressed="false">Rectangle</button>
+          <button type="button" class="method" data-method="fillet" aria-pressed="false">Fillet</button>
+          <button type="button" class="method" data-method="dimension" aria-pressed="false"
+            aria-keyshortcuts="D">Dimension (D)</button>
+        </div>
+        <div class="row shape-size" id="shape-size" hidden>
+          <label>Diameter <input type="number" min="0" step="0.1" data-size="diameter"> mm</label>
+          <label>Width <input type="number" min="0" step="0.1" data-size="width"> mm</label>
+          <label>Height <input type="number" min="0" step="0.1" data-size="height"> mm</label>
+          <label>Corner radius <input type="number" min="0" step="0.1" data-size="radius"> mm</label>
+        </div>
+        <p class="hint">Where the picture's background is guessed wrong. Choose what to mark, then how.</p>
         <dl class="tool-help">
           <div><dt>Background</dt><dd>Leave this part out. The colours are then found again in what is left;
             the ones you added or changed stay.</dd></div>
           <div><dt>Keep</dt><dd>Part of the keychain, even if it looks like background.</dd></div>
           <div><dt>Erase</dt><dd>Takes off background and keep.</dd></div>
+          <div><dt>Cut</dt><dd>The keychain is exactly the shape drawn: all round it is left out, all of it
+            is kept, paint too. Draw it with Spline, Circle or Rectangle.</dd></div>
+          <div><dt>Brush</dt><dd>Paint it on.</dd></div>
+          <div><dt>Spline</dt><dd>Click points round an area, and the first point again to close it.</dd></div>
+          <div><dt>Circle</dt><dd>Press at the centre and drag out, or click the centre and then the rim.</dd></div>
+          <div><dt>Rectangle</dt><dd>Drag from corner to corner, or click both corners.</dd></div>
+          <div><dt>Fillet</dt><dd>Click rectangle corners to round them by the radius in the field, or a
+            rectangle's outline for all four. A radius typed rounds all the corners chosen at once.</dd></div>
+          <div><dt>Dimension</dt><dd>Press D, then click a circle for its diameter or a rectangle's edge for
+            its width or height, and type the size in mm. It stays on the picture and keeps that size
+            while the handles are dragged; click its value to change it, Delete on it takes it off.</dd></div>
+          <div><dt>Shapes</dt><dd>Drag a handle to change one. Click its outline to type its sizes in mm.
+            Delete takes off the shape under the pointer.</dd></div>
         </dl>
         <button type="button" id="clear-mask">Clear background and keep</button>
       </fieldset>
@@ -182,7 +211,10 @@
             <canvas id="detail-canvas"></canvas>
             <canvas id="curves-canvas"></canvas>
             <canvas id="turned-canvas"></canvas>
+            <canvas id="mask-shapes-canvas"></canvas>
             <canvas id="lines-canvas"></canvas>
+            <input id="dimension-input" class="dimension-input" type="number" min="0" step="0.1"
+              aria-label="Dimension in mm" hidden>
           </div>
         </div>
       </div>

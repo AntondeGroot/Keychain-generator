@@ -4,6 +4,7 @@
 // inside a closed area, while none is being drawn, takes it off. Where the text lands on the back
 // is moved in the back's preview.
 
+import { insideCurve } from "./closedcurve.js";
 import { spline } from "./handdrawn.js";
 
 const DASH_SCREEN_PX = [6, 4];
@@ -33,7 +34,7 @@ export class TurnedText {
   click(point) {
     const at = [point.x, point.y];
     if (!this.current) {
-      const kept = this.areas.filter((area) => !inside(spline(area.points, true), at));
+      const kept = this.areas.filter((area) => !insideCurve(spline(area.points, true), at));
       if (kept.length < this.areas.length) return this.#changed(kept);
       this.current = [at];
     } else if (this.current.length >= SMALLEST && distance(this.current[0], at) <= CLOSE_SCREEN_PX * this.scale()) {
@@ -109,14 +110,4 @@ function stroke(context, samples) {
 
 function distance([x1, y1], [x2, y2]) {
   return Math.hypot(x1 - x2, y1 - y2);
-}
-
-/** Whether the point is inside the closed curve: a ray to the right crosses it an odd number of times. */
-function inside(samples, [x, y]) {
-  let crossings = 0;
-  samples.forEach(([x1, y1], index) => {
-    const [x2, y2] = samples[(index + 1) % samples.length];
-    if (y1 > y !== y2 > y && x < x1 + ((y - y1) * (x2 - x1)) / (y2 - y1)) crossings += 1;
-  });
-  return crossings % 2 === 1;
 }

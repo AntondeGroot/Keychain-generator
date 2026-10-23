@@ -2,7 +2,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from keychain.picture.handdrawn import Shape, with_curves
-from keychain.picture.painted import Drawing, Painting
+from keychain.picture.painted import Drawing, PaintedMask, Painting
 from keychain.picture.palette import parse_colour
 from keychain.picture.regions import OUTSIDE, colour_map
 
@@ -61,6 +61,27 @@ def test_a_shape_gets_its_colour_and_counts_as_part_of_the_picture(spec):
 
     assert label_at(100, 100) == ORANGE
     assert label_at(100, 15) == BLACK  # drawn on the background, so now part of the picture
+
+
+def test_a_shape_drawn_across_painted_background_stays_out_of_it(spec):
+    # Skin in a black frame, with background painted over everything right of x = 150, such as
+    # all round a circle the keychain is cut to: a shape drawn from the skin out across it is
+    # part of the picture only up to where the painted background starts.
+    image = Image.new("RGB", (200, 200), "white")
+    ImageDraw.Draw(image).rectangle((20, 40, 180, 160), fill="#fabe93", outline="black", width=4)
+    painted_out = np.zeros((200, 200), dtype=bool)
+    painted_out[:, 150:] = True
+    across = Shape(((120, 90), (190, 90), (190, 110), (120, 110)), "#de7e31")
+    mask = PaintedMask(background=painted_out, keep=np.zeros_like(painted_out))
+    painting = Painting.of(image.size, mask=mask, drawing=Drawing(shapes=(across,)))
+
+    colours = colour_map(image, PALETTE, spec, painting)
+
+    def label_at(x: int, y: int) -> int:
+        return colours.labels[y * colours.factor, x * colours.factor]
+
+    assert label_at(130, 100) == ORANGE  # the shape, where the picture is
+    assert label_at(170, 100) == OUTSIDE  # painted background, though the shape runs across it
 
 
 def test_an_edge_with_background_on_one_side_makes_that_side_background(spec):

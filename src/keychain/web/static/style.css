@@ -78,6 +78,9 @@ label { display: flex; justify-content: space-between; align-items: center; gap:
 input[type="number"] { width: 80px; }
 .hint { margin: 0; color: var(--muted); font-size: 13px; }
 .row { display: flex; gap: 6px; flex-wrap: wrap; }
+.shape-size { gap: 6px 14px; }
+.shape-size[hidden], .shape-size label[hidden] { display: none; }
+.dimension-input { position: absolute; transform: translate(-50%, -50%); width: 72px; }
 
 /* What each tool does, one line each with the tool's name first. */
 .tool-help { margin: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
@@ -148,7 +151,7 @@ select { font: inherit; max-width: 160px; }
 .stack canvas { display: block; width: 100%; height: auto; }
 .stack canvas + canvas { position: absolute; inset: 0; opacity: 0.45; pointer-events: none; }
 #paint-canvas { opacity: 0.9; } /* the colour as it will be printed */
-#curves-canvas, #turned-canvas { opacity: 1; }
+#curves-canvas, #turned-canvas, #mask-shapes-canvas { opacity: 1; }
 #lines-canvas { opacity: 1; pointer-events: auto; cursor: crosshair; touch-action: none; }
 .stack.picking #lines-canvas { cursor: copy; }
 .stack.on-handle #lines-canvas { cursor: move; }
