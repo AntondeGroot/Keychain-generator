@@ -1,6 +1,7 @@
 // The buttons that say what dragging over the picture does: a drawing tool, painting with a
 // colour, or picking a colour from the picture. Pressing a chosen one again puts it away. How
-// background and keep are marked, with the brush or a shape, is chosen apart.
+// background and keep are marked, with the brush or a shape, is chosen apart; D picks up the
+// dimension.
 
 const PAINTING = ["paint", "spline"]; // the tools that paint in the paint colour
 const MASK_TOOLS = ["background", "keep", "erase-mask"];
@@ -16,6 +17,11 @@ export class ToolButtons {
     pickButton.addEventListener("click", () => this.#togglePicking());
     for (const button of document.querySelectorAll(".tool")) button.addEventListener("click", () => this.choose(button));
     for (const button of document.querySelectorAll(".method")) button.addEventListener("click", () => this.#markWith(button));
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "d" && event.key !== "D") return;
+      if (event.metaKey || event.ctrlKey || event.altKey || event.target.closest?.("input, select, textarea")) return;
+      this.#markWith(document.querySelector('.method[data-method="dimension"]'));
+    });
   }
 
   /** Chooses the tool, or puts it away when it was already chosen: then dragging over the

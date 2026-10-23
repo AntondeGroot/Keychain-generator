@@ -1,10 +1,14 @@
 // Marking background and keep, or erasing them: the action is the tool in hand, and the method
 // says how it is applied: painting with the brush, or drawing a spline, a circle or a rectangle
 // round an area. The shape last drawn or clicked shows its sizes, to type exactly. The fillet
-// rounds the rectangle corners chosen with it, all at once.
+// rounds the rectangle corners chosen with it, all at once. The dimension puts a size on the
+// picture, to type there, and keeps it while the shape's handles are dragged.
 
+import { DimensionInput } from "./dimensioninput.js";
+import { inMm } from "./dimensions.js";
 import { MaskHistory } from "./maskhistory.js";
 import { MaskShapes } from "./maskshapes.js";
+import { resize } from "./shapekinds.js";
 import { ShapeSize } from "./shapesize.js";
 
 /** The mask's tools by name, and what each does. */
@@ -14,10 +18,14 @@ export class MaskTool {
   /** onChanged hears each change to the mask once it is made. */
   constructor(maskCanvas, shapesCanvas, canvasPxPerScreenPx, onChanged) {
     this.history = new MaskHistory(maskCanvas);
-    const choose = (step) => this.sizes.show(step);
-    const fillet = (corners, added) => this.sizes.fillet(corners, added);
-    this.shapes = new MaskShapes(shapesCanvas, canvasPxPerScreenPx, this.history, choose, fillet);
+    this.shapes = new MaskShapes(shapesCanvas, canvasPxPerScreenPx, this.history, {
+      choose: (step) => this.sizes.show(step),
+      fillet: (corners, added) => this.sizes.fillet(corners, added),
+      dimension: (dimension, at) => this.#typeDimension(dimension, at),
+    });
     this.sizes = new ShapeSize(document.getElementById("shape-size"), () => this.#resized());
+    this.dimensionInput = new DimensionInput(document.getElementById("dimension-input"), canvasPxPerScreenPx);
+    this.pixelMm = null;
     this.onChanged = onChanged;
     this.method = "brush";
     this.stroking = false;
@@ -45,7 +53,10 @@ export class MaskTool {
 
   /** How big a picture pixel is on the keychain, from the preview, for the sizes in mm. */
   setPixelMm(pixelMm) {
+    this.pixelMm = pixelMm;
     this.sizes.setScale(pixelMm);
+    this.shapes.pixelMm = pixelMm;
+    this.shapes.draw();
   }
 
   guide(action) {
@@ -59,6 +70,7 @@ export class MaskTool {
 
   setMethod(method) {
     this.method = method;
+    this.dimensionInput.close();
     this.shapes.cancel();
     this.shapes.choose(null);
     this.sizes.setFilleting(method === "fillet");
@@ -92,13 +104,22 @@ export class MaskTool {
     this.shapes.move(null);
   }
 
-  /** Delete takes off the shape under the pointer. */
+  /** Delete takes off the shape under the pointer, or with the dimension in hand the dimension. */
   remove() {
-    if (this.method !== "brush" && this.shapes.removeUnderPointer()) this.onChanged();
+    if (this.method !== "brush" && this.shapes.removeUnderPointer(this.method)) this.onChanged();
   }
 
   cancel() {
     this.shapes.cancel();
+    this.dimensionInput.close();
+  }
+
+  #typeDimension(dimension, at) {
+    this.dimensionInput.open(at, inMm(dimension, this.pixelMm), (mm) => {
+      resize(dimension.step, dimension.name, mm / this.pixelMm);
+      this.sizes.show(dimension.step);
+      this.#resized();
+    });
   }
 
   /** A size typed: the mask is drawn again with the shape at its new size. */

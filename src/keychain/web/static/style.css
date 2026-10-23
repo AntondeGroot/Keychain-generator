@@ -80,6 +80,7 @@ input[type="number"] { width: 80px; }
 .row { display: flex; gap: 6px; flex-wrap: wrap; }
 .shape-size { gap: 6px 14px; }
 .shape-size[hidden], .shape-size label[hidden] { display: none; }
+.dimension-input { position: absolute; transform: translate(-50%, -50%); width: 72px; }
 
 /* What each tool does, one line each with the tool's name first. */
 .tool-help { margin: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }

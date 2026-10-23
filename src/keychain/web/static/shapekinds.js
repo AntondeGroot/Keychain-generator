@@ -22,11 +22,12 @@ export function outline(step) {
 
 /** The points to drag, each { at, drag(to) }: a spline's points; a circle's centre, to move it,
  * and a point on its rim, for its size; a rectangle's corners, each pulled from the opposite one,
- * and its centre, to move it. */
+ * and its centre, to move it. Sizes with a dimension stay as they are (dimensions.js). */
 export function handles(step) {
+  const dimensioned = step.dims ?? [];
   if (step.spline) return step.spline.map((point) => ({ at: point, drag: (to) => point.splice(0, 2, ...to) }));
-  if (step.circle) return circleHandles(step.circle);
-  return rectHandles(step.rect);
+  if (step.circle) return circleHandles(step.circle, dimensioned.includes("diameter"));
+  return rectHandles(step.rect, dimensioned);
 }
 
 /** The sizes there are fields for: a circle's diameter; a rectangle's width, height and the
@@ -60,13 +61,6 @@ export function resize(step, name, px, corner = null) {
   Object.assign(rect, { x: x - rect.width / 2, y: y - rect.height / 2 });
 }
 
-/** The rectangle corner nearest the point, within reach, as { step, corner }; null if none is. */
-export function cornerNear(steps, at, reach) {
-  const all = steps.filter((step) => step.rect).flatMap((step) => corners(step.rect).map((point, corner) => ({ step, corner, point })));
-  const within = all.filter(({ point }) => apart(point, at) <= reach);
-  return within.reduce((best, hit) => (best && apart(best.point, at) <= apart(hit.point, at) ? best : hit), null);
-}
-
 /** Where a rectangle's corner would be, were it not rounded. */
 export function cornerAt(step, corner) {
   return corners(step.rect)[corner];
@@ -92,20 +86,28 @@ function rectOutline(rect) {
   });
 }
 
-function circleHandles(circle) {
+function circleHandles(circle, sized) {
   const [x, y] = circle.centre;
-  return [
-    { at: circle.centre, drag: (to) => (circle.centre = to) },
-    { at: [x + circle.radius, y], drag: (to) => (circle.radius = apart(circle.centre, to)) },
-  ];
+  const move = { at: circle.centre, drag: (to) => (circle.centre = to) };
+  const size = { at: [x + circle.radius, y], drag: (to) => (circle.radius = apart(circle.centre, to)) };
+  return sized ? [move] : [move, size];
 }
 
-function rectHandles(rect) {
+function rectHandles(rect, dimensioned) {
   const all = corners(rect);
-  const pulled = all.map((at, i) => ({ at, drag: (to) => Object.assign(rect, between(all[(i + 2) % 4], to)) }));
+  const pulled = all.map((at, i) => ({ at, drag: (to) => Object.assign(rect, pulledFrom(all[(i + 2) % 4], to, rect, dimensioned)) }));
   const centre = centreOf(rect);
   const move = (to) => Object.assign(rect, { x: to[0] - rect.width / 2, y: to[1] - rect.height / 2 });
   return [...pulled, { at: centre, drag: move }];
+}
+
+/** A rectangle from the corner opposite to the point; a dimensioned side keeps its length, on the
+ * side of the opposite corner the point is on. */
+function pulledFrom(opposite, to, rect, dimensioned) {
+  const free = between(opposite, to);
+  if (dimensioned.includes("width")) Object.assign(free, { width: rect.width, x: to[0] < opposite[0] ? opposite[0] - rect.width : opposite[0] });
+  if (dimensioned.includes("height")) Object.assign(free, { height: rect.height, y: to[1] < opposite[1] ? opposite[1] - rect.height : opposite[1] });
+  return free;
 }
 
 /** Top left, top right, bottom right, bottom left: clockwise on the page, where y points down. */

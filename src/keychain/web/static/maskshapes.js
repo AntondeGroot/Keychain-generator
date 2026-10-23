@@ -3,34 +3,28 @@
 // corner, each by dragging or by two clicks. The shapes stay editable: drag a handle to change
 // one, click its outline to choose it and type its sizes, or press Delete with the pointer on it
 // to take it off. With the fillet, a click on a rectangle's corner chooses it to round, or on its
-// outline all four; the corners chosen are rounded all at once. Their outlines show while the mask's tools are in hand; what they mark shows
-// in the mask itself (maskhistory.js).
+// outline all four; the corners chosen are rounded all at once. With the dimension, a click on an
+// edge or a dimension's value opens a box to type the size in (dimensions.js). The outlines show
+// while the mask's tools are in hand; what the shapes mark shows in the mask (maskhistory.js).
 
-import { distanceToCurve, insideCurve } from "./closedcurve.js";
-import { spline } from "./handdrawn.js";
-import { dot, strokeLine } from "./overlays.js";
+import { dimensionLine, labelNear } from "./dimensions.js";
+import { drawMaskShapes } from "./maskshapesdraw.js";
 import { shapeGuide, SMALLEST } from "./shapeguide.js";
-import { cornerAt, cornerNear, dragged, handles, outline } from "./shapekinds.js";
+import { cornerNear, edgeNear, handleNear, outlineNear, shapeUnder } from "./shapehits.js";
+import { dragged } from "./shapekinds.js";
 
-const LINE_SCREEN_PX = 2;
-const DASH_SCREEN_PX = [6, 4];
-const POINT_SCREEN_PX = 3;
-const HANDLE_SCREEN_PX = 5;
 const REACH_SCREEN_PX = 8; // a click this close to a point or a line takes hold of it
-const OUTLINE = "#1d1d1b";
-const CHOSEN = "#00a3e0";
-const HANDLE_FILL = "#ffffff";
 
 export class MaskShapes {
-  /** history: the mask's steps, of which the shapes are the ones that are not strokes; onChoose
-   * hears the shape chosen, or null; onFillet hears the corners chosen with the fillet and those
-   * just added. */
-  constructor(canvas, canvasPxPerScreenPx, history, onChoose, onFillet) {
+  /** history: the mask's steps, of which the shapes are the ones that are not strokes. on hears:
+   * choose, the shape chosen, or null; fillet, the corners chosen with the fillet and those just
+   * added; dimension, the dimension clicked, to type its size. */
+  constructor(canvas, canvasPxPerScreenPx, history, on) {
     this.canvas = canvas;
     this.scale = canvasPxPerScreenPx;
     this.history = history;
-    this.onChoose = onChoose;
-    this.onFillet = onFillet;
+    this.on = on;
+    this.pixelMm = null; // known after the first preview, to show dimensions in mm
     this.shown = false; // while the mask's tools are in hand
     this.drawing = null; // { kind: "spline", points } or { kind: "circle" or "rect", from, to }
     this.pointer = null;
@@ -61,8 +55,9 @@ export class MaskShapes {
     if (this.drawing?.points) return this.#splineClick(at, action);
     if (this.drawing) return this.#finish(action);
     if (method === "fillet") return this.#fillet(at);
-    this.held = this.#handleNear(at);
-    const clicked = this.held?.step ?? this.#outlineNear(at);
+    if (method === "dimension") return this.#dimension(at);
+    this.held = handleNear(this.#shapes(), at, this.#reach());
+    const clicked = this.held?.step ?? outlineNear(this.#shapes(), at, this.#reach());
     if (clicked) this.choose(clicked);
     else this.drawing = method === "spline" ? { kind: "spline", points: [at] } : { kind: method, from: at, to: at };
     this.draw();
@@ -74,7 +69,7 @@ export class MaskShapes {
     if (this.held && point) {
       this.held.drag(this.pointer);
       this.history.draw();
-      this.onChoose(this.chosen);
+      this.on.choose(this.chosen);
     }
     if (this.drawing && !this.drawing.points && point) this.drawing.to = this.pointer;
     if (this.drawing || this.held) this.draw();
@@ -89,9 +84,12 @@ export class MaskShapes {
     return moved;
   }
 
-  /** Takes off the shape under the pointer; true when there was one. */
-  removeUnderPointer() {
-    const step = this.pointer && this.#shapes().findLast((shape) => insideCurve(outline(shape), this.pointer));
+  /** Takes off the shape under the pointer, or with the dimension in hand the dimension whose
+   * value is under it; true when the mask changed. */
+  removeUnderPointer(method) {
+    const dimension = method === "dimension" && this.pointer && labelNear(this.#shapes(), this.pointer, this.scale());
+    if (dimension) dimension.step.dims = dimension.step.dims.filter((name) => name !== dimension.name);
+    const step = !dimension && this.pointer && shapeUnder(this.#shapes(), this.pointer);
     if (step) this.history.remove(step);
     if (step === this.chosen || this.filleted.some((chosen) => chosen.step === step)) this.choose(null);
     this.draw();
@@ -105,29 +103,8 @@ export class MaskShapes {
   }
 
   draw() {
-    const context = this.canvas.getContext("2d");
-    const scale = this.scale();
-    const toPicture = context.getTransform(); // the canvas can be sharper than the picture
-    context.resetTransform();
-    context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    context.setTransform(toPicture);
-    if (!this.shown) return;
-    context.lineWidth = LINE_SCREEN_PX * scale;
-    context.setLineDash(DASH_SCREEN_PX.map((length) => length * scale));
-    for (const shape of this.#shapes()) strokeLine(context, outline(shape), shape === this.chosen ? CHOSEN : OUTLINE, true);
-    if (this.drawing) strokeLine(context, this.#drawn(), OUTLINE, !this.drawing.points);
-    context.setLineDash([]);
-    for (const [x, y] of this.drawing?.points ?? []) dot(context, x, y, POINT_SCREEN_PX * scale, OUTLINE);
-    if (this.drawing) return;
-    for (const { at: [x, y] } of this.#shapes().flatMap(handles)) dot(context, x, y, HANDLE_SCREEN_PX * scale, HANDLE_FILL, OUTLINE);
-    for (const { step, corner } of this.filleted) dot(context, ...cornerAt(step, corner), HANDLE_SCREEN_PX * scale, CHOSEN, OUTLINE);
-  }
-
-  /** The shape being drawn as it is so far: a spline runs on to the pointer. */
-  #drawn() {
-    const { kind, points, from, to } = this.drawing;
-    if (points) return spline([...points, ...(this.pointer ? [this.pointer] : [])], false);
-    return outline(dragged(kind, from, to));
+    const { shown, chosen, filleted, drawing, pointer, pixelMm } = this;
+    drawMaskShapes(this.canvas, this.scale(), { shown, shapes: this.#shapes(), chosen, filleted, drawing, pointer, pixelMm });
   }
 
   #splineClick(at, action) {
@@ -155,38 +132,39 @@ export class MaskShapes {
   choose(step) {
     this.chosen = step;
     this.filleted = [];
-    this.onChoose(step);
+    this.on.choose(step);
   }
 
   /** A corner clicked is chosen to round, or no longer when it was; a rectangle's outline chooses
    * all four of its corners. Clicking away from them chooses none. */
   #fillet(at) {
     const hit = cornerNear(this.#shapes(), at, this.#reach());
-    const rect = hit ? null : this.#outlineNear(at);
+    const rect = hit ? null : outlineNear(this.#shapes(), at, this.#reach());
     const clicked = hit ? [hit] : rect?.rect ? [0, 1, 2, 3].map((corner) => ({ step: rect, corner })) : [];
     const chosen = ({ step, corner }) => this.filleted.some((other) => other.step === step && other.corner === corner);
     const added = clicked.filter((one) => !chosen(one)).map(({ step, corner }) => ({ step, corner }));
     if (hit && added.length === 0) this.filleted = this.filleted.filter((one) => one.step !== hit.step || one.corner !== hit.corner);
     else this.filleted = clicked.length > 0 ? [...this.filleted, ...added] : [];
     this.chosen = null;
-    this.onFillet(this.filleted, added);
+    this.on.fillet(this.filleted, added);
     this.draw();
+    return false;
+  }
+
+  /** A dimension's value, or an edge, which is given a dimension if it had none, opens the box to
+   * type its size in. */
+  #dimension(at) {
+    const hit = labelNear(this.#shapes(), at, this.scale()) ?? edgeNear(this.#shapes(), at, this.#reach());
+    if (!hit || !this.pixelMm) return false;
+    if (!hit.step.dims?.includes(hit.name)) hit.step.dims = [...(hit.step.dims ?? []), hit.name];
+    this.choose(hit.step);
+    this.draw();
+    this.on.dimension(hit, dimensionLine(hit, this.scale()).label);
     return false;
   }
 
   #shapes() {
     return this.history.steps.filter((step) => !step.stroke);
-  }
-
-  /** The handle nearest the point, within reach, with the shape it belongs to; null if none is. */
-  #handleNear(at) {
-    const all = this.#shapes().flatMap((step) => handles(step).map((handle) => ({ ...handle, step })));
-    const within = all.filter((handle) => apart(handle.at, at) <= this.#reach());
-    return within.reduce((best, handle) => (best && apart(best.at, at) <= apart(handle.at, at) ? best : handle), null);
-  }
-
-  #outlineNear(at) {
-    return this.#shapes().findLast((step) => distanceToCurve(outline(step), at) <= this.#reach()) ?? null;
   }
 
   #reach() {

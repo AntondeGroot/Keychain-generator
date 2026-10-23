@@ -86,6 +86,8 @@
           <button type="button" class="method" data-method="circle" aria-pressed="false">Circle</button>
           <button type="button" class="method" data-method="rect" aria-pressed="false">Rectangle</button>
           <button type="button" class="method" data-method="fillet" aria-pressed="false">Fillet</button>
+          <button type="button" class="method" data-method="dimension" aria-pressed="false"
+            aria-keyshortcuts="D">Dimension (D)</button>
         </div>
         <div class="row shape-size" id="shape-size" hidden>
           <label>Diameter <input type="number" min="0" step="0.1" data-size="diameter"> mm</label>
@@ -105,6 +107,9 @@
           <div><dt>Rectangle</dt><dd>Drag from corner to corner, or click both corners.</dd></div>
           <div><dt>Fillet</dt><dd>Click rectangle corners to round them by the radius in the field, or a
             rectangle's outline for all four. A radius typed rounds all the corners chosen at once.</dd></div>
+          <div><dt>Dimension</dt><dd>Press D, then click a circle for its diameter or a rectangle's edge for
+            its width or height, and type the size in mm. It stays on the picture and keeps that size
+            while the handles are dragged; click its value to change it, Delete on it takes it off.</dd></div>
           <div><dt>Shapes</dt><dd>Drag a handle to change one. Click its outline to type its sizes in mm.
             Delete takes off the shape under the pointer.</dd></div>
         </dl>
@@ -205,6 +210,8 @@
             <canvas id="turned-canvas"></canvas>
             <canvas id="mask-shapes-canvas"></canvas>
             <canvas id="lines-canvas"></canvas>
+            <input id="dimension-input" class="dimension-input" type="number" min="0" step="0.1"
+              aria-label="Dimension in mm" hidden>
           </div>
         </div>
       </div>
