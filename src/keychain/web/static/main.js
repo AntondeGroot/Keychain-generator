@@ -1,6 +1,8 @@
 // Wires the page together: picture, colours, mask, sizes and ring go to the server, the preview comes back.
 
+import { BackPreview } from "./backpreview.js";
 import { ColourList } from "./colours.js";
+import { showGuide } from "./guide.js";
 import { PaintColours } from "./paintcolours.js";
 import { Painter } from "./painter.js";
 import { Preview } from "./preview.js";
@@ -14,6 +16,12 @@ import { PictureZoom } from "./zoom.js";
 
 const PREVIEW_DELAY_MS = 600; // waits for a pause in typing or painting before asking the server
 const NEW_COLOUR = "#888888";
+const CLEARS = {
+  "clear-mask": [["mask"]],
+  "clear-details": [["detail"], { lines: true }],
+  "clear-paint": [["paint"], { curves: true }],
+  "clear-turned": [[], { turned: true }],
+};
 
 const element = (id) => document.getElementById(id);
 const state = { image: null, name: "keychain", hole: null };
@@ -25,15 +33,16 @@ const painter = new Painter(
   element("painter"),
   element("picture-canvas"),
   { paint: element("paint-canvas"), mask: element("mask-canvas"), detail: element("detail-canvas") },
-  { curves: element("curves-canvas"), lines: element("lines-canvas") },
+  { curves: element("curves-canvas"), turned: element("turned-canvas"), lines: element("lines-canvas") },
   painted,
 );
-painter.onGuide = showGuide;
+painter.onGuide = (text) => showGuide(element("tool-guide"), text);
 const zoom = new PictureZoom(element("zoom-viewport"), element("painter"), zoomChanged);
 const tools = new ToolButtons(painter, element("pick-colour"), (hex) => colours.add(hex));
 const colours = new ColourList(element("colours"), coloursChanged);
 const paintColours = new PaintColours(element("paint-colours"), (...chosen) => tools.paintIn(...chosen));
 const preview = new Preview(element("preview"), placeRing);
+const back = new BackPreview(element("back"), moveTurnedText);
 const rim = new RimChoice(element("rim"), element("rim-swatch"), schedulePreview);
 const sides = ["width", "height"].map((side) => ({ tick: element(`by-${side}`), input: element(side) }));
 const size = new PictureSize(sides, schedulePreview);
@@ -41,18 +50,12 @@ const projectMenu = new ProjectMenu(designRequest, restoreProject);
 
 element("picture").addEventListener("change", (event) => fromFileInput(event.target, loadPicture));
 element("add-colour").addEventListener("click", () => colours.add(NEW_COLOUR));
-element("clear-mask").addEventListener("click", () => {
-  painter.clear(["mask"]);
-  schedulePreview();
-});
-element("clear-details").addEventListener("click", () => {
-  painter.clear(["detail"], { lines: true });
-  schedulePreview();
-});
-element("clear-paint").addEventListener("click", () => {
-  painter.clear(["paint"], { curves: true });
-  schedulePreview();
-});
+for (const [id, cleared] of Object.entries(CLEARS)) {
+  element(id).addEventListener("click", () => {
+    painter.clear(...cleared);
+    schedulePreview();
+  });
+}
 element("brush").addEventListener("input", (event) => painter.setBrushSize(Number(event.target.value)));
 element("zoom").addEventListener("input", (event) => zoom.set(Number(event.target.value) / 100));
 element("zoom-reset").addEventListener("click", () => zoom.set(1));
@@ -101,8 +104,9 @@ async function updatePreview() {
   const request = ++latestRequest;
   const response = await call("/api/preview", designRequest(), "Making the keychain…");
   if (!response || request !== latestRequest) return; // a newer change is already on its way
-  const { svg, hole, ring, warning } = await response.json();
+  const { svg, back: backSvg, pixel_mm: pixelMm, hole, ring, warning } = await response.json();
   preview.show(svg, ring);
+  back.show(backSvg, pixelMm);
   element("resolution-warning").textContent = warning ?? "";
   element("resolution-warning").hidden = !warning;
   updateDownloadButton();
@@ -156,6 +160,12 @@ function updateDownloadButton() {
   element("download").disabled = isBusy() || !hasPreview;
 }
 
+/** Turned text moved on the back's preview, in picture pixels. */
+function moveTurnedText(index, move) {
+  painter.turned.shift(index, move);
+  schedulePreview();
+}
+
 function placeRing(hole) {
   state.hole = hole;
   setPlacing(false);
@@ -180,17 +190,6 @@ function zoomChanged(level) {
   element("zoom").value = String(percent);
   element("zoom-level").textContent = `${percent}%`;
   painter.redrawOverlays();
-}
-
-/** The guide above the picture: what to do next with the drawing tools, hidden otherwise. While
- * shown it grows to fit but never shrinks, so the picture stays put under the pointer. */
-function showGuide(text) {
-  const guide = element("tool-guide");
-  const before = text ? guide.offsetHeight : 0;
-  guide.style.minHeight = "";
-  guide.textContent = text;
-  guide.hidden = !text;
-  if (text) guide.style.minHeight = `${Math.max(before, guide.offsetHeight)}px`;
 }
 
 function coloursChanged() {

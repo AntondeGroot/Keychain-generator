@@ -109,7 +109,26 @@
       </fieldset>
 
       <fieldset>
-        <legend>6. Size and smoothing</legend>
+        <legend>6. Text on the back</legend>
+        <p class="hint">From behind, the picture shows mirrored, so text reads backwards. Click points
+          round the text, and it reads the right way round on the back as well. The preview then
+          shows the back too: drag the dashed area there to move the text, such as onto the middle
+          of a speech bubble.</p>
+        <div class="row" role="group" aria-label="Text on the back">
+          <button type="button" class="tool" data-tool="turn-text" aria-pressed="false"
+                  aria-label="Select text" title="Select text: click points round text to turn it on the back">
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"
+                 stroke-dasharray="2 1.6"><path d="M3 5.5C4 2.5 12 2 13.5 5s1 6.5-2.5 7.5-8.5 1-9.5-2 .5-3.5 1.5-5z"/></svg>
+            Select text
+          </button>
+          <button type="button" id="clear-turned">Clear selections</button>
+        </div>
+        <p class="hint">Click the first point again to close the area; click inside an area to take it
+          off. Escape cancels.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>7. Size and smoothing</legend>
         <label><span><input type="checkbox" id="by-width" checked> Picture width (mm)</span>
           <input type="number" id="width" data-spec="width_mm" value="50" min="10" step="1"></label>
         <label><span><input type="checkbox" id="by-height"> Picture height (mm)</span>
@@ -137,7 +156,7 @@
       </fieldset>
 
       <fieldset>
-        <legend>7. Keyring</legend>
+        <legend>8. Keyring</legend>
         <button type="button" id="place-ring" aria-pressed="false">Place ring in preview</button>
         <button type="button" id="auto-ring">Automatic position</button>
       </fieldset>
@@ -162,6 +181,7 @@
             <canvas id="mask-canvas"></canvas>
             <canvas id="detail-canvas"></canvas>
             <canvas id="curves-canvas"></canvas>
+            <canvas id="turned-canvas"></canvas>
             <canvas id="lines-canvas"></canvas>
           </div>
         </div>
@@ -175,6 +195,10 @@
       <p id="resolution-warning" class="warning" hidden></p>
       <div class="preview-frame">
         <div id="preview" class="preview"></div>
+        <figure id="back" class="back" hidden>
+          <figcaption>Back, seen from behind</figcaption>
+          <div id="back-preview" class="preview"></div>
+        </figure>
         <div id="working" class="working" hidden>
           <span class="wheel" aria-hidden="true"></span>
           <span id="working-text"></span>

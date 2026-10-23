@@ -8,13 +8,14 @@ from io import BytesIO
 
 from PIL import Image
 
-from keychain.design import Keychain, TracedPicture, assembled_keychain, traced_picture
-from keychain.export.svg import face_svg
+from keychain.design import Choices, Keychain, TracedPicture, TurnedText, assembled_keychain, traced_picture
+from keychain.export.svg import back_svg, face_svg
 from keychain.files import keychain_files, zipped
 from keychain.picture.detection import detect_colours
 from keychain.picture.handdrawn import Shape
 from keychain.picture.painted import ColourPaint, DetailMask, Drawing, PaintedMask, Painting
 from keychain.picture.palette import Colour, parse_colour, rim_colour, with_unique_names
+from keychain.shape.mirror import landing
 from keychain.shape.shades import Shade, Tone
 from keychain.spec import KeychainSpec
 from keychain.web.tracecache import TraceCache
@@ -54,13 +55,19 @@ def colours_action(request: dict) -> Response:
 
 def preview_action(request: dict) -> Response:
     """The front face, where the ring is, and how large it is: the page shows a ring of that size
-    under the pointer while placing it."""
+    under the pointer while placing it. With text turned on the back, the back as well."""
     keychain = designed_from_request(request)
     svg = face_svg(keychain.face, keychain.outline.shape, keychain.picture)
+    landings = [landing(turn) for turn in keychain.turns]
+    back = back_svg(keychain.back, keychain.outline.shape, keychain.picture, landings) if landings else None
     spec = _spec(request.get("spec", {}))
     ring = {"hole_mm": spec.hole_mm / 2, "outer_mm": spec.hole_mm / 2 + spec.hole_wall_mm}
     hole = list(keychain.outline.hole_centre)
-    return _json({"svg": svg, "hole": hole, "ring": ring, "warning": keychain.resolution.warning()})
+    warning = keychain.resolution.warning()
+    pixel_mm = keychain.resolution.pixel_mm  # the page moves turned text in its picture's pixels
+    return _json(
+        {"svg": svg, "back": back, "pixel_mm": pixel_mm, "hole": hole, "ring": ring, "warning": warning}
+    )
 
 
 def download_action(request: dict) -> Response:
@@ -77,9 +84,13 @@ def designed_from_request(request: dict) -> Keychain:
     spec = _spec(request.get("spec", {}))
     traced = TRACED.traced(request, lambda: _traced(request, palette, spec))
     hole = request.get("hole")
-    hole_centre = (float(hole[0]), float(hole[1])) if hole else None
-    rim = _rim_colour(request, palette)
-    return assembled_keychain(traced, palette, spec, hole_centre, rim, _shades(request, palette))
+    choices = Choices(
+        hole_centre=(float(hole[0]), float(hole[1])) if hole else None,
+        rim_colour=_rim_colour(request, palette),
+        shades=_shades(request, palette),
+        turned_text=tuple(_turned_text(text) for text in request.get("turned") or []),
+    )
+    return assembled_keychain(traced, palette, spec, choices)
 
 
 def _traced(request: dict, palette: list[Colour], spec: KeychainSpec) -> TracedPicture:
@@ -124,6 +135,11 @@ def _drawing(request: dict) -> Drawing:
         edges=tuple(_points(edge) for edge in request.get("edges") or []),
         shapes=tuple(Shape(_points(shape["points"]), shape["colour"]) for shape in shapes),
     )
+
+
+def _turned_text(text: dict) -> TurnedText:
+    x, y = text.get("shift") or (0, 0)
+    return TurnedText(_points(text["points"]), (float(x), float(y)))
 
 
 def _points(points: list) -> tuple:

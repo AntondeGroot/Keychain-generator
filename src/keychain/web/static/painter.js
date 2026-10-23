@@ -2,12 +2,14 @@
 // filament colour, "mask" for background (red) and keep (green), "detail" for smooth (blue) and
 // detailed (yellow). On top: connect lines (click A, then B, to join an area up) and splines
 // through clicked points, open as edges or closed as shapes. Each section has its eraser: the
-// mask; the details and connect lines; the colour paint and the curves.
+// mask; the details and connect lines; the colour paint and the curves. Areas drawn round
+// text turn it on the back.
 // The layers have the picture's own size, so the server can lay them over pixel for pixel.
 
 import { HandDrawn } from "./handdrawn.js";
 import { ConnectLines } from "./lines.js";
 import { SplineEditor } from "./splineedit.js";
+import { TurnedText } from "./turnedtext.js";
 import { loadedImage } from "./project.js";
 
 const SHARPEST_OVERLAY_PX = 4096; // the lines and curves are drawn this sharp at most, along the longest side
@@ -27,8 +29,9 @@ const BRUSHES = {
 };
 
 export class Painter {
-  /** layers: the painting canvases by name; overlays: the canvases for the curves and, on top and
-   * receiving the pointer, the connect lines. onPainted is told the brush after a stroke. */
+  /** layers: the painting canvases by name; overlays: the canvases for the curves, the areas
+   * round text and, on top and receiving the pointer, the connect lines. onPainted is told the
+   * brush after a stroke. */
   constructor(stack, pictureCanvas, layers, overlays, onPainted) {
     this.stack = stack;
     this.picture = pictureCanvas;
@@ -37,6 +40,7 @@ export class Painter {
     this.curves = new HandDrawn(overlays.curves, scale);
     this.lines = new ConnectLines(overlays.lines, scale);
     this.editor = new SplineEditor(this.curves);
+    this.turned = new TurnedText(overlays.turned, scale);
     const linesCanvas = overlays.lines;
     this.onPainted = onPainted;
     this.onGuide = () => {}; // told what to do next whenever that changes
@@ -54,19 +58,23 @@ export class Painter {
     linesCanvas.addEventListener("pointerleave", () => {
       this.#up();
       this.curves.hover(null, false);
+      this.turned.hover(null);
       if (this.tool === "spline") this.editor.hover(null);
     });
     document.addEventListener("keydown", (event) => {
       if (event.key !== "Escape") return;
       this.curves.cancel();
       this.lines.cancel();
+      this.turned.cancel();
       this.#showGuide();
     });
   }
 
-  /** Everything drawn by hand, as the server wants it: lines, edges and shapes in picture pixels. */
+  /** Everything drawn by hand, as the server wants it: lines, edges, shapes and areas round text
+   * to turn, in picture pixels. */
   get drawing() {
-    return { connections: this.lines.connections, edges: this.curves.edges, shapes: this.curves.shapes };
+    const { connections } = this.lines;
+    return { connections, edges: this.curves.edges, shapes: this.curves.shapes, turned: this.turned.areas };
   }
 
   /** Draws the lines and curves again, as thin and sharp on screen as before: after zooming, say.
@@ -75,26 +83,27 @@ export class Painter {
     const { width, height } = this.picture;
     const screenPxPerPicturePx = devicePixelRatio / this.#canvasPxPerScreenPx();
     const sharpness = Math.min(screenPxPerPicturePx, SHARPEST_OVERLAY_PX / Math.max(width, height));
-    for (const canvas of [this.curves.canvas, this.lines.canvas]) {
+    for (const canvas of this.#overlays()) {
       canvas.width = Math.round(width * sharpness);
       canvas.height = Math.round(height * sharpness);
       canvas.getContext("2d").setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
     }
     this.curves.draw();
+    this.turned.draw();
     this.lines.draw();
   }
 
   load(image) {
-    for (const canvas of [this.picture, this.lines.canvas, this.curves.canvas, ...Object.values(this.layers)]) {
+    for (const canvas of [this.picture, ...this.#overlays(), ...Object.values(this.layers)]) {
       canvas.width = image.naturalWidth;
       canvas.height = image.naturalHeight;
     }
     this.picture.getContext("2d").drawImage(image, 0, 0);
-    this.clear(Object.keys(this.layers), { lines: true, curves: true });
+    this.clear(Object.keys(this.layers), { lines: true, curves: true, turned: true });
   }
 
-  /** Clears the named layers, and the connect lines and the curves when asked. */
-  clear(layers, { lines = false, curves = false } = {}) {
+  /** Clears the named layers, and the connect lines, the curves and the boxes when asked. */
+  clear(layers, { lines = false, curves = false, turned = false } = {}) {
     for (const name of layers) {
       const canvas = this.layers[name];
       canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
@@ -102,10 +111,11 @@ export class Painter {
     }
     if (lines) this.lines.set([]);
     if (curves) this.curves.set([], []);
+    if (turned) this.turned.set([]);
   }
 
   /** Paint saved in a project: the layers as PNG data URLs (null if unpainted), and the drawing. */
-  async restore(layers, { connections = [], edges = [], shapes = [] }) {
+  async restore(layers, { connections = [], edges = [], shapes = [], turned = [] }) {
     for (const [name, dataUrl] of Object.entries(layers)) {
       if (!dataUrl || !this.layers[name]) continue;
       this.layers[name].getContext("2d").drawImage(await loadedImage(dataUrl), 0, 0);
@@ -113,6 +123,7 @@ export class Painter {
     }
     this.lines.set(connections);
     this.curves.set(edges, shapes);
+    this.turned.set(turned);
   }
 
   /** A brush or a drawing tool by name, or null for none. */
@@ -121,6 +132,7 @@ export class Painter {
     this.stack.classList.toggle("no-tool", tool === null);
     this.lines.cancel();
     this.curves.cancel();
+    this.turned.cancel();
     if (tool === "spline") this.editor.start();
     else this.editor.stop();
     this.stack.classList.remove("on-handle");
@@ -159,6 +171,9 @@ export class Painter {
       this.pressed = { point, snapping: !event.altKey }; // a click if it is let go unmoved
     } else if (this.tool === "spline") {
       this.#splineClick(point, !event.altKey);
+    } else if (this.tool === "turn-text") {
+      if (this.turned.click(point)) this.onPainted();
+      this.#showGuide();
     } else if (this.tool) {
       event.target.setPointerCapture(event.pointerId);
       this.last = point;
@@ -174,6 +189,7 @@ export class Painter {
       this.curves.hover(point, !event.altKey);
       this.stack.classList.toggle("on-handle", this.editor.hover(point));
     }
+    if (this.tool === "turn-text") this.turned.hover(point);
     if (!this.last) return;
     this.#stroke(this.last, point);
     this.last = point;
@@ -225,7 +241,12 @@ export class Painter {
   #showGuide() {
     if (this.tool === "connect") this.onGuide(this.lines.guide());
     else if (this.tool === "spline") this.onGuide(this.curves.guide(this.paintColourName));
+    else if (this.tool === "turn-text") this.onGuide(this.turned.guide());
     else this.onGuide("");
+  }
+
+  #overlays() {
+    return [this.curves.canvas, this.turned.canvas, this.lines.canvas];
   }
 
   #point(event) {
