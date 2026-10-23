@@ -53,7 +53,7 @@ element("add-colour").addEventListener("click", () => colours.add(NEW_COLOUR));
 for (const [id, cleared] of Object.entries(CLEARS)) {
   element(id).addEventListener("click", () => {
     painter.clear(...cleared);
-    schedulePreview();
+    painted(cleared[0].includes("mask") ? "background" : null);
   });
 }
 element("brush").addEventListener("input", (event) => painter.setBrushSize(Number(event.target.value)));
@@ -77,8 +77,8 @@ async function loadPicture(file) {
   coloursChanged();
 }
 
-/** Painting background away can take colours with it, such as other characters in a group
- * picture, so the colours are found again in what is left; the ones chosen by hand stay. */
+/** Background takes colours with it, such as other characters in a group picture, and taking it
+ * off brings them back: whenever it changes, the colours are found again; those chosen by hand stay. */
 function painted(tool) {
   if (tool !== "background") return schedulePreview();
   clearTimeout(previewTimer);

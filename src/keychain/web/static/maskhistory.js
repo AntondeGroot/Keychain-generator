@@ -7,6 +7,7 @@ import { loadedImage } from "./project.js";
 import { outline } from "./shapekinds.js";
 
 const COLOURS = { background: "#ff0000", keep: "#00ff00", erase: "#000000" }; // as the server reads them
+const PAINTED = 128; // a channel from this value counts as painted, as on the server
 
 export class MaskHistory {
   constructor(canvas) {
@@ -60,6 +61,18 @@ export class MaskHistory {
     context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     if (this.base) context.drawImage(this.base, 0, 0);
     for (const step of this.steps) drawStep(context, step);
+  }
+
+  /** A number that changes when the pixels the server reads as background do: red and alpha
+   * painted, whatever else is. */
+  backgroundPrint() {
+    if (!this.painted) return 0;
+    const { data } = this.#context().getImageData(0, 0, this.canvas.width, this.canvas.height);
+    let print = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i] >= PAINTED && data[i + 3] >= PAINTED) print = (print * 31 + i) | 0;
+    }
+    return print;
   }
 
   dataUrl() {

@@ -16,14 +16,15 @@ import { TurnedText } from "./turnedtext.js";
 export class Painter {
   /** layers: the painting canvases by name, the mask among them; overlays: the canvases for the
    * curves, the areas round text, the mask's shapes and, on top and receiving the pointer, the
-   * connect lines. onPainted is told the tool after each change. */
+   * connect lines. onPainted is told the tool after each change, or "background" when the part
+   * of the mask marked background changed, whichever tool changed it. */
   constructor(stack, pictureCanvas, layers, overlays, onPainted) {
     this.stack = stack;
     this.picture = pictureCanvas;
     const { mask, ...painted } = layers;
     this.layers = new PaintLayers(painted);
     const scale = () => this.#canvasPxPerScreenPx();
-    this.mask = new MaskTool(mask, overlays.maskShapes, scale, () => this.onPainted(this.tool));
+    this.mask = new MaskTool(mask, overlays.maskShapes, scale, (background) => this.onPainted(background ? "background" : this.tool));
     this.curves = new HandDrawn(overlays.curves, scale);
     this.lines = new ConnectLines(overlays.lines, scale);
     this.spline = new SplineTool(this.curves, stack, () => this.paintColour, () => this.onPainted());

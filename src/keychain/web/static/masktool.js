@@ -15,7 +15,8 @@ import { ShapeSize } from "./shapesize.js";
 export const MASK_ACTIONS = { background: "background", keep: "keep", "erase-mask": "erase" };
 
 export class MaskTool {
-  /** onChanged hears each change to the mask once it is made. */
+  /** onChanged hears each change to the mask once it is made, and whether the part marked
+   * background changed with it. */
   constructor(maskCanvas, shapesCanvas, canvasPxPerScreenPx, onChanged) {
     this.history = new MaskHistory(maskCanvas);
     this.shapes = new MaskShapes(shapesCanvas, canvasPxPerScreenPx, this.history, {
@@ -27,6 +28,7 @@ export class MaskTool {
     this.dimensionInput = new DimensionInput(document.getElementById("dimension-input"), canvasPxPerScreenPx);
     this.pixelMm = null;
     this.onChanged = onChanged;
+    this.backgroundPrint = 0; // the background as it was at the last change
     this.method = "brush";
     this.stroking = false;
   }
@@ -38,11 +40,13 @@ export class MaskTool {
 
   async restore(saved) {
     await this.history.restore(saved);
+    this.backgroundPrint = this.history.backgroundPrint();
     this.shapes.choose(null);
   }
 
   clear() {
     this.history.clear();
+    this.backgroundPrint = 0;
     this.shapes.choose(null);
   }
 
@@ -79,7 +83,7 @@ export class MaskTool {
   /** True when the pointer should stay with the picture until let go: painting or dragging. */
   down(point, action, brushWidth) {
     if (this.method !== "brush") {
-      if (this.shapes.down(point, action, this.method)) this.onChanged();
+      if (this.shapes.down(point, action, this.method)) this.#changed();
       return this.shapes.holding;
     }
     this.history.add({ action, stroke: { width: brushWidth, points: [[point.x, point.y]] } });
@@ -96,7 +100,7 @@ export class MaskTool {
   up(action) {
     const changed = this.shapes.up(action) || this.stroking;
     this.stroking = false;
-    if (changed) this.onChanged();
+    if (changed) this.#changed();
   }
 
   leave(action) {
@@ -106,7 +110,7 @@ export class MaskTool {
 
   /** Delete takes off the shape under the pointer, or with the dimension in hand the dimension. */
   remove() {
-    if (this.method !== "brush" && this.shapes.removeUnderPointer(this.method)) this.onChanged();
+    if (this.method !== "brush" && this.shapes.removeUnderPointer(this.method)) this.#changed();
   }
 
   cancel() {
@@ -122,10 +126,18 @@ export class MaskTool {
     });
   }
 
+  /** Taking background off, as much as marking it, changes which colours are left to find. */
+  #changed() {
+    const print = this.history.backgroundPrint();
+    const backgroundChanged = print !== this.backgroundPrint;
+    this.backgroundPrint = print;
+    this.onChanged(backgroundChanged);
+  }
+
   /** A size typed: the mask is drawn again with the shape at its new size. */
   #resized() {
     this.history.draw();
     this.shapes.draw();
-    this.onChanged();
+    this.#changed();
   }
 }
