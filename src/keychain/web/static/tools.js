@@ -4,7 +4,7 @@
 // dimension.
 
 const PAINTING = ["paint", "spline"]; // the tools that paint in the paint colour
-const MASK_TOOLS = ["background", "keep", "erase-mask"];
+const MASK_TOOLS = ["background", "keep", "erase-mask", "cut"];
 
 import { setStatus } from "./server.js";
 
@@ -30,6 +30,8 @@ export class ToolButtons {
     const chosen = button.getAttribute("aria-pressed") === "true" ? null : button;
     for (const tool of document.querySelectorAll(".tool")) tool.setAttribute("aria-pressed", String(tool === chosen));
     this.painter.setTool(chosen?.dataset.tool ?? null);
+    const brushing = document.querySelector('.method[data-method="brush"]').getAttribute("aria-pressed") === "true";
+    if (chosen?.dataset.tool === "cut" && brushing) this.#markWith(document.querySelector('.method[data-method="circle"]'));
   }
 
   /** The colour the brush and the spline paint in. Choosing one by hand picks up the brush,

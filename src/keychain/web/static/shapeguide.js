@@ -2,7 +2,7 @@
 
 export const SMALLEST = 3; // points a spline needs before it can be closed
 
-const MARKING = { background: "background", keep: "keep", erase: "erased" };
+const MARKING = { background: "background", keep: "keep", erase: "erased", cut: "the keychain's outline" };
 const STARTS = {
   spline: "Spline: click points round an area",
   circle: "Circle: press at the centre and drag out",

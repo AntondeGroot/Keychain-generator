@@ -1,5 +1,6 @@
 // The background and keep mask, kept as the steps it was made in: brush strokes and shapes, each
-// marking background, marking keep or erasing. Drawn again in order whenever a shape changes, so
+// marking background, marking keep or erasing; or a shape cutting the keychain to it, background
+// all round it and kept inside. Drawn again in order whenever a shape changes, so
 // a shape can be moved after more was painted, and what came after it stays on top. A project
 // saved before the steps were kept starts from its painted mask.
 
@@ -85,6 +86,7 @@ export class MaskHistory {
 }
 
 function drawStep(context, step) {
+  if (step.action === "cut") return cutTo(context, outline(step));
   paintAs(context, step.action);
   if (!step.stroke) return fillClosed(context, outline(step));
   const { points } = step.stroke;
@@ -105,6 +107,20 @@ function drawSegment(context, { action, stroke }, [x1, y1], [x2, y2]) {
 function paintAs(context, action) {
   context.globalCompositeOperation = action === "erase" ? "destination-out" : "source-over";
   context.strokeStyle = context.fillStyle = COLOURS[action];
+}
+
+/** Background everywhere outside the outline, keep inside it: the keychain is that shape. */
+function cutTo(context, samples) {
+  const { width, height } = context.canvas;
+  context.globalCompositeOperation = "source-over";
+  context.fillStyle = COLOURS.background;
+  context.beginPath();
+  context.rect(0, 0, width, height);
+  samples.forEach(([x, y], index) => (index ? context.lineTo(x, y) : context.moveTo(x, y)));
+  context.closePath();
+  context.fill("evenodd");
+  context.fillStyle = COLOURS.keep;
+  fillClosed(context, samples);
 }
 
 function fillClosed(context, samples) {

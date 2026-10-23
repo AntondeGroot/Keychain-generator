@@ -12,7 +12,8 @@ import { resize } from "./shapekinds.js";
 import { ShapeSize } from "./shapesize.js";
 
 /** The mask's tools by name, and what each does. */
-export const MASK_ACTIONS = { background: "background", keep: "keep", "erase-mask": "erase" };
+export const MASK_ACTIONS = { background: "background", keep: "keep", "erase-mask": "erase", cut: "cut" };
+const CUT_NEEDS_A_SHAPE = "Cut: choose Spline, Circle or Rectangle, and draw the keychain's outline.";
 
 export class MaskTool {
   /** onChanged hears each change to the mask once it is made, and whether the part marked
@@ -64,7 +65,8 @@ export class MaskTool {
   }
 
   guide(action) {
-    return this.method === "brush" ? "" : this.shapes.guide(action, this.method);
+    if (this.method === "brush") return action === "cut" ? CUT_NEEDS_A_SHAPE : "";
+    return this.shapes.guide(action, this.method);
   }
 
   /** Puts the shapes' outlines away while none of the mask's tools is in hand. */
@@ -86,6 +88,7 @@ export class MaskTool {
       if (this.shapes.down(point, action, this.method)) this.#changed();
       return this.shapes.holding;
     }
+    if (action === "cut") return false; // a brush has no outline to cut to
     this.history.add({ action, stroke: { width: brushWidth, points: [[point.x, point.y]] } });
     this.stroking = true;
     return true;

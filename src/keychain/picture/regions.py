@@ -57,9 +57,7 @@ def colour_map(
     labels = nearest_colours(big[..., :3], palette, spec.smoothing_mm / rough_mm_per_px)
     inside = _inside(labels, big, painting, factor, spec, rough_mm_per_px)
     ink = darkest(palette)
-    # Curves drawn by hand say exactly where things are, so they come before any clean-up, and
-    # the clean-up leaves the drawn shapes as they are.
-    labels, inside, drawn = with_curves(labels, inside, painting.drawing, palette, factor, rough_mm_per_px)
+    labels, inside, drawn = _hand_drawn(labels, inside, painting, palette, factor, rough_mm_per_px)
     # Closing gaps can make the picture a little larger, so the exact scale is measured after.
     mm_per_px = spec.mm_per_px(*_size_px(inside))
     line_radius_px = spec.min_line_mm / 2 / mm_per_px
@@ -67,8 +65,24 @@ def colour_map(
     labels, inside = with_connections(
         labels, inside, painting.drawing.connections, factor, ink, 2 * line_radius_px
     )
+    inside &= ~painting.mask.enlarged(factor).background  # a line drawn across it does not bring it back
     labels = _with_printable_areas(labels, inside & ~drawn, ink, line_radius_px)
     return ColourMap(np.where(inside, labels, OUTSIDE), mm_per_px, ink, factor, painting.detail)
+
+
+def _hand_drawn(
+    labels: np.ndarray,
+    inside: np.ndarray,
+    painting: Painting,
+    palette: list[Colour],
+    factor: int,
+    mm_per_px: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Curves drawn by hand say exactly where things are, so they come before any clean-up, and
+    the clean-up leaves the drawn shapes as they are. Painted background is surely not the
+    keychain, so it stays out even where a shape is drawn across it, such as all round a cut."""
+    labels, inside, drawn = with_curves(labels, inside, painting.drawing, palette, factor, mm_per_px)
+    return labels, inside & ~painting.mask.enlarged(factor).background, drawn
 
 
 def _enlargement(
