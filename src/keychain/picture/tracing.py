@@ -1,6 +1,7 @@
 """Pixel masks to smooth polygons in millimetres, drawn as splines."""
 
 from collections.abc import Callable
+from dataclasses import dataclass
 
 import numpy as np
 from shapely.geometry import Polygon
@@ -38,6 +39,28 @@ def traced(
             shape = shape.symmetric_difference(Polygon(curve).buffer(0))
     # The curves are sampled densely; along smooth stretches most points add nothing.
     return shape.simplify(spec.simplify_mm)
+
+
+@dataclass(frozen=True)
+class Placement:
+    """Where the page's picture lands in mm: it was traced enlarged by a factor, with the middle
+    of what is kept at (0, 0)."""
+
+    mm_per_px: float  # of the enlarged picture
+    factor: int
+    centre: tuple[float, float]  # row and column of the enlarged picture
+
+    def in_mm(self, x: float, y: float) -> tuple[float, float]:
+        """A point on the page's picture, x right and y down, with pixel i from i to i + 1; the
+        enlarged pixels are counted by their middles, as the traced edges are."""
+        row, column = y * self.factor - 0.5, x * self.factor - 0.5
+        centre_row, centre_column = self.centre
+        return (column - centre_column) * self.mm_per_px, -(row - centre_row) * self.mm_per_px
+
+    def shift_in_mm(self, x: float, y: float) -> tuple[float, float]:
+        """A move on the page's picture, x right and y down."""
+        mm_per_page_px = self.mm_per_px * self.factor
+        return x * mm_per_page_px, -y * mm_per_page_px
 
 
 def centre_px(mask: np.ndarray) -> tuple[float, float]:

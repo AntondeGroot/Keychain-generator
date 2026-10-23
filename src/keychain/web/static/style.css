@@ -148,7 +148,7 @@ select { font: inherit; max-width: 160px; }
 .stack canvas { display: block; width: 100%; height: auto; }
 .stack canvas + canvas { position: absolute; inset: 0; opacity: 0.45; pointer-events: none; }
 #paint-canvas { opacity: 0.9; } /* the colour as it will be printed */
-#curves-canvas { opacity: 1; }
+#curves-canvas, #turned-canvas { opacity: 1; }
 #lines-canvas { opacity: 1; pointer-events: auto; cursor: crosshair; touch-action: none; }
 .stack.picking #lines-canvas { cursor: copy; }
 .stack.on-handle #lines-canvas { cursor: move; }
@@ -172,6 +172,11 @@ select { font: inherit; max-width: 160px; }
   font-size: 13px;
 }
 .preview svg { display: block; width: 100%; height: auto; }
+/* The back under the front, while text is turned on it; where turned text lands, to drag. */
+.back { margin: 8px 0 0; }
+.back[hidden] { display: none; }
+.back figcaption { margin-bottom: 4px; color: var(--muted); font-size: 13px; }
+.turned-text { fill: transparent; cursor: move; touch-action: none; } /* grabbed inside too */
 .preview.placing svg { cursor: crosshair; }
 /* Where the ring would end up: see-through, so the picture under it still shows. */
 #ring-ghost { pointer-events: none; }
@@ -215,9 +220,14 @@ select { font: inherit; max-width: 160px; }
   .controls fieldset { min-width: 0; } /* narrower by the scrollbar, not wider than the column */
   .canvas-panel { display: flex; flex-direction: column; min-height: 0; }
   .fit, .preview-frame { flex: 1; min-height: 0; }
+  /* Front and back share the height, each shrunk to fit. */
+  .preview-frame { display: flex; flex-direction: column; }
+  .preview-frame > .preview, .back:not([hidden]) { flex: 1; min-height: 0; }
+  .back:not([hidden]) { display: flex; flex-direction: column; }
   /* The picture as large as the room allows in both width and height, in its own shape. */
   .fit { container-type: size; }
   .zoom-viewport { width: min(100cqw, 100cqh * var(--ratio, 1)); margin: 0 auto; }
-  .preview { height: 100%; }
+  .preview { height: 100%; min-height: 0; }
+  .back .preview { flex: 1; }
   .preview svg { height: 100%; }
 }

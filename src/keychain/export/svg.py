@@ -1,7 +1,8 @@
-"""A preview of the front face in millimetres, to check the colours and the size before printing.
+"""A preview of a face in millimetres, to check the colours and the size before printing.
 
 A scale below and to the right gives the picture's width and height, without the rim and the ring."""
 
+from shapely import affinity
 from shapely.geometry.base import BaseGeometry
 
 from keychain.shape.layer import Layer
@@ -16,7 +17,8 @@ TEXT_MM = 2.5
 SCALE_ROOM_MM = SCALE_GAP_MM + TICK_MM + TEXT_MM  # beside the keychain, for a scale and its text
 
 
-def face_svg(face: list[Layer], outline: BaseGeometry, picture: BaseGeometry) -> str:
+def face_svg(face: list[Layer], outline: BaseGeometry, picture: BaseGeometry, over: str = "") -> str:
+    """Over: more SVG on top of the face."""
     min_x, min_y, max_x, max_y = outline.bounds
     left, top = min_x - CANVAS_PADDING_MM, -max_y - CANVAS_PADDING_MM
     width = max_x - min_x + SCALE_ROOM_MM + 2 * CANVAS_PADDING_MM
@@ -27,8 +29,26 @@ def face_svg(face: list[Layer], outline: BaseGeometry, picture: BaseGeometry) ->
         f'viewBox="{left:.3f} {top:.3f} {width:.3f} {height:.3f}">\n'
         f'  <rect x="{left:.3f}" y="{top:.3f}" width="{width:.3f}" height="{height:.3f}" '
         f'fill="{PAGE_COLOUR}"/>\n'
-        f"{paths}</svg>\n"
+        f"{paths}{over}</svg>\n"
     )
+
+
+def back_svg(
+    back: list[Layer], outline: BaseGeometry, picture: BaseGeometry, text_areas: list[BaseGeometry]
+) -> str:
+    """The back as seen from behind: turned over, so its left is on the right. Dashed on top, the
+    areas where turned text lands, numbered in order so the page can move them."""
+
+    def turned(shape: BaseGeometry) -> BaseGeometry:
+        return affinity.scale(shape, xfact=-1, origin=(0, 0))
+
+    layers = [Layer(layer.name, turned(layer.shape), layer.colour) for layer in back]
+    areas = "".join(
+        f'  <path class="turned-text" data-turn="{index}" fill="none" stroke="#1d1d1b" stroke-width="0.25" '
+        f'stroke-dasharray="0.8 0.6" d="{path_data(turned(area))}"/>\n'
+        for index, area in enumerate(text_areas)
+    )
+    return face_svg(layers, turned(outline), turned(picture), areas)
 
 
 def _layer_path(layer: Layer) -> str:

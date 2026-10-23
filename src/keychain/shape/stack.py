@@ -30,20 +30,26 @@ class Part:
 
 
 def stacked_parts(
-    face: list[Filament], outline: BaseGeometry, core: Colour, spec: KeychainSpec
+    face: list[Filament],
+    outline: BaseGeometry,
+    core: Colour,
+    spec: KeychainSpec,
+    back: list[Filament] | None = None,
 ) -> list[Part]:
-    """Both faces have the same layers, so seen from behind the picture shows mirrored. A face's
-    outer layer is at the bottom of the back face and the top of the front face.
+    """Without a back of its own, the back has the face's layers, so seen from behind the
+    picture shows mirrored. A face's outer layer is at the bottom of the back face and the top of
+    the front face.
 
     The core is one colour across the whole keychain, the rim's, so the printer changes no
     filament in those layers, and the rim and core make one strong body."""
     core_bottom = spec.face_mm
     core_top = spec.face_mm + spec.core_mm
     back_outer, front_outer = (0.0, spec.shade_mm), (spec.thickness_mm - spec.shade_mm, spec.thickness_mm)
-    back = [_part("back", filament, back_outer, (back_outer[1], core_bottom)) for filament in face]
+    behind = face if back is None else back
+    back_parts = [_part("back", filament, back_outer, (back_outer[1], core_bottom)) for filament in behind]
     middle = Part(CORE, core.hex, (Slab(outline, core_bottom, core_top),))
     front = [_part("front", filament, front_outer, (core_top, front_outer[0])) for filament in face]
-    return [*back, middle, *front]
+    return [*back_parts, middle, *front]
 
 
 def _part(side: str, filament: Filament, outer: tuple[float, float], inner: tuple[float, float]) -> Part:
