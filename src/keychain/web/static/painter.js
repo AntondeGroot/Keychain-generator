@@ -1,32 +1,14 @@
-// Painting over the picture, on layers so an area can be both kept and detailed: "paint" with a
-// filament colour, "mask" for background (red) and keep (green), "detail" for smooth (blue) and
-// detailed (yellow). On top: connect lines (click A, then B, to join an area up) and splines
-// through clicked points, open as edges or closed as shapes. Each section has its eraser: the
-// mask; the details and connect lines; the colour paint and the curves. Areas drawn round
-// text turn it on the back.
-// The layers have the picture's own size, so the server can lay them over pixel for pixel.
+// Painting over the picture, on layers so an area can be both kept and detailed. On top:
+// connect lines (click A, then B, to join an area up) and splines through clicked points, open
+// as edges or closed as shapes. The erasers take off the connect lines and the curves as well as
+// paint. Areas drawn round text turn it on the back.
 
 import { HandDrawn } from "./handdrawn.js";
 import { ConnectLines } from "./lines.js";
-import { SplineEditor } from "./splineedit.js";
+import { sizeOverlays } from "./overlays.js";
+import { ERASERS, PaintLayers } from "./paintlayers.js";
+import { SplineTool } from "./splinetool.js";
 import { TurnedText } from "./turnedtext.js";
-import { loadedImage } from "./project.js";
-
-const SHARPEST_OVERLAY_PX = 4096; // the lines and curves are drawn this sharp at most, along the longest side
-
-const ERASERS = {
-  "erase-mask": { layers: ["mask"] },
-  "erase-details": { layers: ["detail"], lines: true },
-  "erase-paint": { layers: ["paint"], curves: true },
-};
-
-const BRUSHES = {
-  background: { layer: "mask", colour: "#ff0000" },
-  keep: { layer: "mask", colour: "#00ff00" },
-  smooth: { layer: "detail", colour: "#0000ff" },
-  detailed: { layer: "detail", colour: "#ffff00" },
-  paint: { layer: "paint", colour: null }, // the colour chosen with setPaintColour
-};
 
 export class Painter {
   /** layers: the painting canvases by name; overlays: the canvases for the curves, the areas
@@ -35,11 +17,11 @@ export class Painter {
   constructor(stack, pictureCanvas, layers, overlays, onPainted) {
     this.stack = stack;
     this.picture = pictureCanvas;
-    this.layers = layers;
+    this.layers = new PaintLayers(layers);
     const scale = () => this.#canvasPxPerScreenPx();
     this.curves = new HandDrawn(overlays.curves, scale);
     this.lines = new ConnectLines(overlays.lines, scale);
-    this.editor = new SplineEditor(this.curves);
+    this.spline = new SplineTool(this.curves, stack, () => this.paintColour, () => this.onPainted());
     this.turned = new TurnedText(overlays.turned, scale);
     const linesCanvas = overlays.lines;
     this.onPainted = onPainted;
@@ -48,10 +30,8 @@ export class Painter {
     this.tool = "background";
     this.paintColour = "#000000";
     this.brushScreenPx = 20;
-    this.painted = new Set();
     this.onPick = null;
     this.last = null;
-    this.pressed = null; // a spline point pressed with the spline tool: { point, snapping }
     linesCanvas.addEventListener("pointerdown", (event) => this.#down(event));
     linesCanvas.addEventListener("pointermove", (event) => this.#move(event));
     linesCanvas.addEventListener("pointerup", () => this.#up());
@@ -59,7 +39,7 @@ export class Painter {
       this.#up();
       this.curves.hover(null, false);
       this.turned.hover(null);
-      if (this.tool === "spline") this.editor.hover(null);
+      if (this.tool === "spline") this.spline.leave();
     });
     document.addEventListener("keydown", (event) => {
       if (event.key !== "Escape") return;
@@ -77,38 +57,26 @@ export class Painter {
     return { connections, edges: this.curves.edges, shapes: this.curves.shapes, turned: this.turned.areas };
   }
 
-  /** Draws the lines and curves again, as thin and sharp on screen as before: after zooming, say.
-   * Their canvases follow the size on screen, not the picture's, and draw in picture pixels. */
+  /** Draws the lines and curves again, as thin and sharp on screen as before: after zooming, say. */
   redrawOverlays() {
-    const { width, height } = this.picture;
-    const screenPxPerPicturePx = devicePixelRatio / this.#canvasPxPerScreenPx();
-    const sharpness = Math.min(screenPxPerPicturePx, SHARPEST_OVERLAY_PX / Math.max(width, height));
-    for (const canvas of this.#overlays()) {
-      canvas.width = Math.round(width * sharpness);
-      canvas.height = Math.round(height * sharpness);
-      canvas.getContext("2d").setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
-    }
+    sizeOverlays(this.#overlays(), this.picture, this.#canvasPxPerScreenPx());
     this.curves.draw();
     this.turned.draw();
     this.lines.draw();
   }
 
   load(image) {
-    for (const canvas of [this.picture, ...this.#overlays(), ...Object.values(this.layers)]) {
+    for (const canvas of [this.picture, ...this.#overlays(), ...Object.values(this.layers.canvases)]) {
       canvas.width = image.naturalWidth;
       canvas.height = image.naturalHeight;
     }
     this.picture.getContext("2d").drawImage(image, 0, 0);
-    this.clear(Object.keys(this.layers), { lines: true, curves: true, turned: true });
+    this.clear(this.layers.names, { lines: true, curves: true, turned: true });
   }
 
   /** Clears the named layers, and the connect lines, the curves and the boxes when asked. */
   clear(layers, { lines = false, curves = false, turned = false } = {}) {
-    for (const name of layers) {
-      const canvas = this.layers[name];
-      canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
-      this.painted.delete(name);
-    }
+    this.layers.clear(layers);
     if (lines) this.lines.set([]);
     if (curves) this.curves.set([], []);
     if (turned) this.turned.set([]);
@@ -116,11 +84,7 @@ export class Painter {
 
   /** Paint saved in a project: the layers as PNG data URLs (null if unpainted), and the drawing. */
   async restore(layers, { connections = [], edges = [], shapes = [], turned = [] }) {
-    for (const [name, dataUrl] of Object.entries(layers)) {
-      if (!dataUrl || !this.layers[name]) continue;
-      this.layers[name].getContext("2d").drawImage(await loadedImage(dataUrl), 0, 0);
-      this.painted.add(name);
-    }
+    await this.layers.restore(layers);
     this.lines.set(connections);
     this.curves.set(edges, shapes);
     this.turned.set(turned);
@@ -133,8 +97,8 @@ export class Painter {
     this.lines.cancel();
     this.curves.cancel();
     this.turned.cancel();
-    if (tool === "spline") this.editor.start();
-    else this.editor.stop();
+    if (tool === "spline") this.spline.start();
+    else this.spline.stop();
     this.stack.classList.remove("on-handle");
     this.#showGuide();
   }
@@ -156,7 +120,7 @@ export class Painter {
 
   /** One layer as a PNG data URL, or null when nothing was painted on it. */
   dataUrl(layer) {
-    return this.painted.has(layer) ? this.layers[layer].toDataURL("image/png") : null;
+    return this.layers.dataUrl(layer);
   }
 
   #down(event) {
@@ -166,11 +130,9 @@ export class Painter {
     } else if (this.tool === "connect") {
       if (this.lines.click(point)) this.onPainted();
       this.#showGuide();
-    } else if (this.tool === "spline" && this.editor.grab(point)) {
-      event.target.setPointerCapture(event.pointerId);
-      this.pressed = { point, snapping: !event.altKey }; // a click if it is let go unmoved
     } else if (this.tool === "spline") {
-      this.#splineClick(point, !event.altKey);
+      if (this.spline.down(point, !event.altKey)) event.target.setPointerCapture(event.pointerId);
+      this.#showGuide();
     } else if (this.tool === "turn-text") {
       if (this.turned.click(point)) this.onPainted();
       this.#showGuide();
@@ -183,25 +145,17 @@ export class Painter {
 
   #move(event) {
     const point = this.#point(event);
-    if (this.tool === "spline" && !this.onPick && this.pressed) {
-      this.editor.drag(point, !event.altKey);
-    } else if (this.tool === "spline" && !this.onPick) {
-      this.curves.hover(point, !event.altKey);
-      this.stack.classList.toggle("on-handle", this.editor.hover(point));
-    }
+    if (this.tool === "spline" && !this.onPick) this.spline.move(point, !event.altKey);
     if (this.tool === "turn-text") this.turned.hover(point);
     if (!this.last) return;
     this.#stroke(this.last, point);
     this.last = point;
   }
 
-  /** A point of a spline let go: moved, or only clicked, which adds a point there as any click. */
   #up() {
-    if (this.pressed) {
-      const { point, snapping } = this.pressed;
-      this.pressed = null;
-      if (this.editor.release()) this.onPainted();
-      else this.#splineClick(point, snapping);
+    if (this.tool === "spline") {
+      this.spline.up();
+      this.#showGuide();
     }
     if (!this.last) return;
     this.last = null;
@@ -210,31 +164,11 @@ export class Painter {
 
   #stroke(from, to) {
     const eraser = ERASERS[this.tool];
-    const erasing = Boolean(eraser);
     const width = this.brushScreenPx * this.#canvasPxPerScreenPx();
     const erasedLines = eraser?.lines && this.lines.eraseNear(to, width / 2);
     const erasedCurves = eraser?.curves && this.curves.eraseNear(to, width / 2);
     if (erasedLines || erasedCurves) this.onPainted();
-    const layers = erasing ? eraser.layers : [BRUSHES[this.tool].layer];
-    for (const layer of layers) {
-      const context = this.layers[layer].getContext("2d");
-      context.globalCompositeOperation = erasing ? "destination-out" : "source-over";
-      context.strokeStyle = erasing ? "#000000" : (BRUSHES[this.tool].colour ?? this.paintColour);
-      context.lineWidth = width;
-      context.lineCap = "round";
-      context.lineJoin = "round";
-      context.beginPath();
-      context.moveTo(from.x, from.y);
-      context.lineTo(to.x, to.y);
-      context.stroke();
-      if (!erasing) this.painted.add(layer);
-    }
-  }
-
-  #splineClick(point, snapping) {
-    if (this.curves.click(point, this.paintColour, snapping)) this.onPainted();
-    this.editor.hover(point); // none while drawing; the finished one's when it is done
-    this.#showGuide();
+    this.layers.stroke(this.tool, from, to, width, this.paintColour);
   }
 
   /** The guide for the drawing tools, and none for the brushes. */
