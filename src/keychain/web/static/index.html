@@ -30,7 +30,6 @@
       <fieldset>
         <legend>2. Colours</legend>
         <p class="hint">One per filament. The darkest is the ink: the lines.
-          <strong>Paint</strong> paints with that colour on the picture, such as a faint strip of hair.
           A <strong>dark</strong> shade prints one thin layer of its colour over ink; a <strong>light</strong>
           shade prints one thin layer of the lightest colour over its colour.</p>
         <ul id="colours"></ul>
@@ -41,7 +40,41 @@
       </fieldset>
 
       <fieldset>
-        <legend>3. What to keep (rough is fine)</legend>
+        <legend>3. Paint</legend>
+        <p class="hint">Paint a colour where the picture should have it, such as a faint strip of hair
+          or an area to print as a shade.</p>
+        <div class="row paint-colours" id="paint-colours" role="group" aria-label="Colour to paint in"></div>
+        <div class="row" role="group" aria-label="Paint">
+          <button type="button" class="tool" data-tool="paint" aria-pressed="false"
+                  aria-label="Brush" title="Brush: paint the colour where you drag">
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 2.5 7.5 8.5"/><path d="M7 9c-2 0-3 1.2-3 2.8 0 .9-.6 1.5-1.5 1.7C4 14.5 8.5 14.5 8.5 11 8.5 10 8 9.3 7 9z" fill="currentColor"/></svg>
+          </button>
+          <button type="button" class="tool" data-tool="spline" aria-pressed="false"
+                  aria-label="Spline" title="Spline: click points round an area to fill it">
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12.5C4 4 8 4 8.5 8s4.5 4 5-4.5"/><circle cx="2.5" cy="12.5" r="1.3" fill="currentColor"/><circle cx="13.5" cy="3.5" r="1.3" fill="currentColor"/></svg>
+          </button>
+          <button type="button" class="tool" data-tool="erase-paint" aria-pressed="false"
+                  aria-label="Erase" title="Erase: take off paint and splines">
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5 14 7l-6.5 6.5H5L2 10.5z"/><path d="M6 6l4.5 4.5M5 13.5h9"/></svg>
+          </button>
+        </div>
+        <dl class="tool-help">
+          <div><dt>Brush</dt><dd>Paints the colour where you drag.</dd></div>
+          <div><dt>Spline</dt><dd>Click around an area and click the first point again to fill it with
+            the colour, for small detailed areas. Or click the last point again to replace a harsh
+            edge with a smooth one. Click on another curve to start or end exactly on it; hold Alt
+            to place a point freely. Escape cancels. Move over a spline to see its points, and drag
+            one to move it.</dd></div>
+          <div><dt>Erase</dt><dd>Takes off paint and splines.</dd></div>
+        </dl>
+        <button type="button" id="clear-paint">Clear paint</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>4. What to keep (rough is fine)</legend>
         <div class="row" role="group" aria-label="What to keep">
           <button type="button" class="tool" data-tool="background" aria-pressed="true">Background</button>
           <button type="button" class="tool" data-tool="keep" aria-pressed="false">Keep</button>
@@ -58,17 +91,11 @@
       </fieldset>
 
       <fieldset>
-        <legend>4. Details</legend>
+        <legend>5. Details</legend>
         <div class="row" role="group" aria-label="Details">
           <button type="button" class="tool" data-tool="smooth" aria-pressed="false">Smooth</button>
           <button type="button" class="tool" data-tool="detailed" aria-pressed="false">Detailed</button>
           <button type="button" class="tool" data-tool="connect" aria-pressed="false">Connect</button>
-          <button type="button" class="tool" data-tool="spline" aria-pressed="false">Spline</button>
-          <button type="button" class="tool" data-tool="edit-splines" aria-pressed="false"
-                  aria-label="Edit splines" title="Edit splines: drag their points">
-            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"
-                 stroke-linejoin="round"><path d="M11 2.5 13.5 5 5.5 13H3v-2.5z M9.5 4 12 6.5"/></svg>
-          </button>
           <button type="button" class="tool" data-tool="erase-details" aria-pressed="false">Erase</button>
         </div>
         <dl class="tool-help">
@@ -76,18 +103,13 @@
           <div><dt>Detailed</dt><dd>Follow the picture more closely there.</dd></div>
           <div><dt>Connect</dt><dd>Click A, then B, to join an area that fades out in between, such as a
             strip of hair.</dd></div>
-          <div><dt>Spline</dt><dd>Click to draw a curve, then click the last point again to replace a harsh
-            edge with a smooth one. Or click the first point to make a shape in the colour last
-            chosen with Paint, for small detailed areas. Click on another curve to start or end
-            exactly on it; hold Alt to place a point freely. Escape cancels.</dd></div>
-          <div><dt>Pencil</dt><dd>Drag the points of the splines drawn, to move them.</dd></div>
-          <div><dt>Erase</dt><dd>Takes off all of these, and colour paint.</dd></div>
+          <div><dt>Erase</dt><dd>Takes off smooth, detailed and connect lines.</dd></div>
         </dl>
         <button type="button" id="clear-details">Clear details</button>
       </fieldset>
 
       <fieldset>
-        <legend>5. Size and smoothing</legend>
+        <legend>6. Size and smoothing</legend>
         <label><span><input type="checkbox" id="by-width" checked> Picture width (mm)</span>
           <input type="number" id="width" data-spec="width_mm" value="50" min="10" step="1"></label>
         <label><span><input type="checkbox" id="by-height"> Picture height (mm)</span>
@@ -115,7 +137,7 @@
       </fieldset>
 
       <fieldset>
-        <legend>6. Keyring</legend>
+        <legend>7. Keyring</legend>
         <button type="button" id="place-ring" aria-pressed="false">Place ring in preview</button>
         <button type="button" id="auto-ring">Automatic position</button>
       </fieldset>

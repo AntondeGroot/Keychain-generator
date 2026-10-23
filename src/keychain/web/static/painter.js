@@ -1,8 +1,8 @@
 // Painting over the picture, on layers so an area can be both kept and detailed: "paint" with a
 // filament colour, "mask" for background (red) and keep (green), "detail" for smooth (blue) and
 // detailed (yellow). On top: connect lines (click A, then B, to join an area up) and splines
-// through clicked points, open as edges or closed as shapes. One eraser takes off the mask, the
-// other the details: the detail layer, the colour paint, and the lines and curves.
+// through clicked points, open as edges or closed as shapes. Each section has its eraser: the
+// mask; the details and connect lines; the colour paint and the curves.
 // The layers have the picture's own size, so the server can lay them over pixel for pixel.
 
 import { HandDrawn } from "./handdrawn.js";
@@ -13,8 +13,9 @@ import { loadedImage } from "./project.js";
 const SHARPEST_OVERLAY_PX = 4096; // the lines and curves are drawn this sharp at most, along the longest side
 
 const ERASERS = {
-  "erase-mask": { layers: ["mask"], drawing: false },
-  "erase-details": { layers: ["detail", "paint"], drawing: true }, // with the lines and curves
+  "erase-mask": { layers: ["mask"] },
+  "erase-details": { layers: ["detail"], lines: true },
+  "erase-paint": { layers: ["paint"], curves: true },
 };
 
 const BRUSHES = {
@@ -46,13 +47,14 @@ export class Painter {
     this.painted = new Set();
     this.onPick = null;
     this.last = null;
+    this.pressed = null; // a spline point pressed with the spline tool: { point, snapping }
     linesCanvas.addEventListener("pointerdown", (event) => this.#down(event));
     linesCanvas.addEventListener("pointermove", (event) => this.#move(event));
     linesCanvas.addEventListener("pointerup", () => this.#up());
     linesCanvas.addEventListener("pointerleave", () => {
       this.#up();
       this.curves.hover(null, false);
-      if (this.tool === "edit-splines") this.editor.hover(null);
+      if (this.tool === "spline") this.editor.hover(null);
     });
     document.addEventListener("keydown", (event) => {
       if (event.key !== "Escape") return;
@@ -88,19 +90,18 @@ export class Painter {
       canvas.height = image.naturalHeight;
     }
     this.picture.getContext("2d").drawImage(image, 0, 0);
-    this.clear();
+    this.clear(Object.keys(this.layers), { lines: true, curves: true });
   }
 
-  /** Clears the named layers, and the lines and curves too if drawing; everything by default. */
-  clear(layers = Object.keys(this.layers), drawing = true) {
+  /** Clears the named layers, and the connect lines and the curves when asked. */
+  clear(layers, { lines = false, curves = false } = {}) {
     for (const name of layers) {
       const canvas = this.layers[name];
       canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
       this.painted.delete(name);
     }
-    if (!drawing) return;
-    this.lines.set([]);
-    this.curves.set([], []);
+    if (lines) this.lines.set([]);
+    if (curves) this.curves.set([], []);
   }
 
   /** Paint saved in a project: the layers as PNG data URLs (null if unpainted), and the drawing. */
@@ -120,8 +121,9 @@ export class Painter {
     this.stack.classList.toggle("no-tool", tool === null);
     this.lines.cancel();
     this.curves.cancel();
-    if (tool === "edit-splines") this.editor.start();
+    if (tool === "spline") this.editor.start();
     else this.editor.stop();
+    this.stack.classList.remove("on-handle");
     this.#showGuide();
   }
 
@@ -152,11 +154,11 @@ export class Painter {
     } else if (this.tool === "connect") {
       if (this.lines.click(point)) this.onPainted();
       this.#showGuide();
+    } else if (this.tool === "spline" && this.editor.grab(point)) {
+      event.target.setPointerCapture(event.pointerId);
+      this.pressed = { point, snapping: !event.altKey }; // a click if it is let go unmoved
     } else if (this.tool === "spline") {
-      if (this.curves.click(point, this.paintColour, !event.altKey)) this.onPainted();
-      this.#showGuide();
-    } else if (this.tool === "edit-splines") {
-      if (this.editor.grab(point)) event.target.setPointerCapture(event.pointerId);
+      this.#splineClick(point, !event.altKey);
     } else if (this.tool) {
       event.target.setPointerCapture(event.pointerId);
       this.last = point;
@@ -166,9 +168,10 @@ export class Painter {
 
   #move(event) {
     const point = this.#point(event);
-    if (this.tool === "spline" && !this.onPick) this.curves.hover(point, !event.altKey);
-    if (this.tool === "edit-splines" && !this.onPick) {
+    if (this.tool === "spline" && !this.onPick && this.pressed) {
       this.editor.drag(point, !event.altKey);
+    } else if (this.tool === "spline" && !this.onPick) {
+      this.curves.hover(point, !event.altKey);
       this.stack.classList.toggle("on-handle", this.editor.hover(point));
     }
     if (!this.last) return;
@@ -176,8 +179,14 @@ export class Painter {
     this.last = point;
   }
 
+  /** A point of a spline let go: moved, or only clicked, which adds a point there as any click. */
   #up() {
-    if (this.editor.release()) this.onPainted();
+    if (this.pressed) {
+      const { point, snapping } = this.pressed;
+      this.pressed = null;
+      if (this.editor.release()) this.onPainted();
+      else this.#splineClick(point, snapping);
+    }
     if (!this.last) return;
     this.last = null;
     this.onPainted(this.tool);
@@ -187,9 +196,9 @@ export class Painter {
     const eraser = ERASERS[this.tool];
     const erasing = Boolean(eraser);
     const width = this.brushScreenPx * this.#canvasPxPerScreenPx();
-    if (eraser?.drawing && (this.lines.eraseNear(to, width / 2) | this.curves.eraseNear(to, width / 2))) {
-      this.onPainted();
-    }
+    const erasedLines = eraser?.lines && this.lines.eraseNear(to, width / 2);
+    const erasedCurves = eraser?.curves && this.curves.eraseNear(to, width / 2);
+    if (erasedLines || erasedCurves) this.onPainted();
     const layers = erasing ? eraser.layers : [BRUSHES[this.tool].layer];
     for (const layer of layers) {
       const context = this.layers[layer].getContext("2d");
@@ -206,11 +215,16 @@ export class Painter {
     }
   }
 
+  #splineClick(point, snapping) {
+    if (this.curves.click(point, this.paintColour, snapping)) this.onPainted();
+    this.editor.hover(point); // none while drawing; the finished one's when it is done
+    this.#showGuide();
+  }
+
   /** The guide for the drawing tools, and none for the brushes. */
   #showGuide() {
     if (this.tool === "connect") this.onGuide(this.lines.guide());
     else if (this.tool === "spline") this.onGuide(this.curves.guide(this.paintColourName));
-    else if (this.tool === "edit-splines") this.onGuide(this.editor.guide());
     else this.onGuide("");
   }
 

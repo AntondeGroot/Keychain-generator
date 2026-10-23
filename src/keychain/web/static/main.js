@@ -1,6 +1,7 @@
 // Wires the page together: picture, colours, mask, sizes and ring go to the server, the preview comes back.
 
 import { ColourList } from "./colours.js";
+import { PaintColours } from "./paintcolours.js";
 import { Painter } from "./painter.js";
 import { Preview } from "./preview.js";
 import { RimChoice } from "./rim.js";
@@ -30,7 +31,8 @@ const painter = new Painter(
 painter.onGuide = showGuide;
 const zoom = new PictureZoom(element("zoom-viewport"), element("painter"), zoomChanged);
 const tools = new ToolButtons(painter, element("pick-colour"), (hex) => colours.add(hex));
-const colours = new ColourList(element("colours"), coloursChanged, choosePaintColour);
+const colours = new ColourList(element("colours"), coloursChanged);
+const paintColours = new PaintColours(element("paint-colours"), (...chosen) => tools.paintIn(...chosen));
 const preview = new Preview(element("preview"), placeRing);
 const rim = new RimChoice(element("rim"), element("rim-swatch"), schedulePreview);
 const sides = ["width", "height"].map((side) => ({ tick: element(`by-${side}`), input: element(side) }));
@@ -40,11 +42,15 @@ const projectMenu = new ProjectMenu(designRequest, restoreProject);
 element("picture").addEventListener("change", (event) => fromFileInput(event.target, loadPicture));
 element("add-colour").addEventListener("click", () => colours.add(NEW_COLOUR));
 element("clear-mask").addEventListener("click", () => {
-  painter.clear(["mask"], false);
+  painter.clear(["mask"]);
   schedulePreview();
 });
 element("clear-details").addEventListener("click", () => {
-  painter.clear(["detail", "paint"], true);
+  painter.clear(["detail"], { lines: true });
+  schedulePreview();
+});
+element("clear-paint").addEventListener("click", () => {
+  painter.clear(["paint"], { curves: true });
   schedulePreview();
 });
 element("brush").addEventListener("input", (event) => painter.setBrushSize(Number(event.target.value)));
@@ -162,10 +168,6 @@ function setPlacing(placing) {
   if (placing) setStatus("Click in the preview where the keyring hole should go.");
 }
 
-function choosePaintColour(button, hex) {
-  tools.choosePaint(button, hex, colours.get().find((colour) => colour.hex === hex)?.name);
-}
-
 /** A new picture to paint on, seen whole. */
 function showPicture(image) {
   painter.load(image);
@@ -193,5 +195,6 @@ function showGuide(text) {
 
 function coloursChanged() {
   rim.follow(colours.get());
+  paintColours.follow(colours.get());
   schedulePreview();
 }

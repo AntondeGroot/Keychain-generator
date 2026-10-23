@@ -1,6 +1,8 @@
 // The buttons that say what dragging over the picture does: a drawing tool, painting with a
 // colour, or picking a colour from the picture. Pressing a chosen one again puts it away.
 
+const PAINTING = ["paint", "spline"]; // the tools that paint in the paint colour
+
 import { setStatus } from "./server.js";
 
 export class ToolButtons {
@@ -21,10 +23,11 @@ export class ToolButtons {
     this.painter.setTool(chosen?.dataset.tool ?? null);
   }
 
-  /** Paints with a colour, by its button beside the colour. */
-  choosePaint(button, hex, name) {
+  /** The colour the brush and the spline paint in. Choosing one by hand picks up the brush,
+   * unless a tool that paints is in hand already. */
+  paintIn(hex, name, byHand) {
     this.painter.setPaintColour(hex, name);
-    this.choose(button);
+    if (byHand && !PAINTING.includes(this.painter.tool)) this.choose(document.querySelector('.tool[data-tool="paint"]'));
   }
 
   #togglePicking() {
