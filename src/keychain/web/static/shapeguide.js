@@ -8,6 +8,8 @@ const STARTS = {
   circle: "Circle: press at the centre and drag out",
   rect: "Rectangle: press at a corner and drag to the opposite one",
 };
+const FILLET =
+  "Fillet: click rectangle corners to round them by the radius below, or a rectangle's outline for all four; click a chosen corner again to leave it out. A radius typed rounds all the corners chosen.";
 const EDITING = "Click a shape's outline to type its sizes, drag its handles to change it; Delete takes off the shape under the pointer.";
 const DRAWING = {
   circle: "Circle: let go, or click, where the rim goes. Esc cancels.",
@@ -20,5 +22,6 @@ export function shapeGuide(drawing, action, method) {
   if (drawing && !points) return DRAWING[drawing.kind];
   if (points?.length >= SMALLEST) return "Spline: click the first point again to close it. Esc cancels.";
   if (points) return "Spline: keep clicking round the area. Esc cancels.";
+  if (method === "fillet") return FILLET;
   return `${STARTS[method]} to make it ${MARKING[action]}. ${EDITING}`;
 }

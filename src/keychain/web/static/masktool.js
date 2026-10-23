@@ -1,6 +1,7 @@
 // Marking background and keep, or erasing them: the action is the tool in hand, and the method
 // says how it is applied: painting with the brush, or drawing a spline, a circle or a rectangle
-// round an area. The shape last drawn or clicked shows its sizes, to type exactly.
+// round an area. The shape last drawn or clicked shows its sizes, to type exactly. The fillet
+// rounds the rectangle corners chosen with it, all at once.
 
 import { MaskHistory } from "./maskhistory.js";
 import { MaskShapes } from "./maskshapes.js";
@@ -13,7 +14,9 @@ export class MaskTool {
   /** onChanged hears each change to the mask once it is made. */
   constructor(maskCanvas, shapesCanvas, canvasPxPerScreenPx, onChanged) {
     this.history = new MaskHistory(maskCanvas);
-    this.shapes = new MaskShapes(shapesCanvas, canvasPxPerScreenPx, this.history, (step) => this.sizes.show(step));
+    const choose = (step) => this.sizes.show(step);
+    const fillet = (corners, added) => this.sizes.fillet(corners, added);
+    this.shapes = new MaskShapes(shapesCanvas, canvasPxPerScreenPx, this.history, choose, fillet);
     this.sizes = new ShapeSize(document.getElementById("shape-size"), () => this.#resized());
     this.onChanged = onChanged;
     this.method = "brush";
@@ -57,6 +60,8 @@ export class MaskTool {
   setMethod(method) {
     this.method = method;
     this.shapes.cancel();
+    this.shapes.choose(null);
+    this.sizes.setFilleting(method === "fillet");
   }
 
   /** True when the pointer should stay with the picture until let go: painting or dragging. */

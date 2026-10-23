@@ -30,22 +30,46 @@ export function handles(step) {
 }
 
 /** The sizes there are fields for: a circle's diameter; a rectangle's width, height and the
- * radius of its corners. None for a spline. */
+ * radius of its corners, null where they differ. None for a spline. */
 export function sizesOf(step) {
   if (step.circle) return { diameter: 2 * step.circle.radius };
-  if (step.rect) return { width: step.rect.width, height: step.rect.height, radius: step.rect.radii[0] };
-  return {};
+  if (!step.rect) return {};
+  const { width, height } = step.rect;
+  return { width, height, radius: sharedRadius([0, 1, 2, 3].map((corner) => ({ step, corner }))) };
 }
 
-/** Sets one of the sizes, keeping the shape's centre where it is. */
-export function resize(step, name, px) {
+/** The radius rectangle corners, each { step, corner }, have in common; null where they differ. */
+export function sharedRadius(corners) {
+  const radii = corners.map(({ step, corner }) => step.rect.radii[corner]);
+  return radii.every((radius) => radius === radii[0]) ? radii[0] : null;
+}
+
+/** Sets one of the sizes, keeping the shape's centre where it is; a radius for the corner given,
+ * or else for all four. */
+export function resize(step, name, px, corner = null) {
   if (name === "diameter") step.circle.radius = px / 2;
-  if (name === "radius") step.rect.radii = Array(4).fill(Math.min(px, smallestRadius(step.rect)));
+  if (name === "radius") {
+    const radius = Math.min(px, smallestRadius(step.rect));
+    if (corner === null) step.rect.radii = Array(4).fill(radius);
+    else step.rect.radii[corner] = radius;
+  }
   if (name !== "width" && name !== "height") return;
   const rect = step.rect;
   const [x, y] = centreOf(rect);
   rect[name] = px;
   Object.assign(rect, { x: x - rect.width / 2, y: y - rect.height / 2 });
+}
+
+/** The rectangle corner nearest the point, within reach, as { step, corner }; null if none is. */
+export function cornerNear(steps, at, reach) {
+  const all = steps.filter((step) => step.rect).flatMap((step) => corners(step.rect).map((point, corner) => ({ step, corner, point })));
+  const within = all.filter(({ point }) => apart(point, at) <= reach);
+  return within.reduce((best, hit) => (best && apart(best.point, at) <= apart(hit.point, at) ? best : hit), null);
+}
+
+/** Where a rectangle's corner would be, were it not rounded. */
+export function cornerAt(step, corner) {
+  return corners(step.rect)[corner];
 }
 
 function circleOutline({ centre: [x, y], radius }) {
