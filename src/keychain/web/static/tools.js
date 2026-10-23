@@ -1,7 +1,9 @@
 // The buttons that say what dragging over the picture does: a drawing tool, painting with a
-// colour, or picking a colour from the picture. Pressing a chosen one again puts it away.
+// colour, or picking a colour from the picture. Pressing a chosen one again puts it away. How
+// background and keep are marked, with the brush or a shape, is chosen apart.
 
 const PAINTING = ["paint", "spline"]; // the tools that paint in the paint colour
+const MASK_TOOLS = ["background", "keep", "erase-mask"];
 
 import { setStatus } from "./server.js";
 
@@ -13,6 +15,7 @@ export class ToolButtons {
     this.onPick = onPick;
     pickButton.addEventListener("click", () => this.#togglePicking());
     for (const button of document.querySelectorAll(".tool")) button.addEventListener("click", () => this.choose(button));
+    for (const button of document.querySelectorAll(".method")) button.addEventListener("click", () => this.#markWith(button));
   }
 
   /** Chooses the tool, or puts it away when it was already chosen: then dragging over the
@@ -28,6 +31,13 @@ export class ToolButtons {
   paintIn(hex, name, byHand) {
     this.painter.setPaintColour(hex, name);
     if (byHand && !PAINTING.includes(this.painter.tool)) this.choose(document.querySelector('.tool[data-tool="paint"]'));
+  }
+
+  /** Choosing how to mark takes up the background tool, unless one of the mask's tools is in hand. */
+  #markWith(button) {
+    for (const method of document.querySelectorAll(".method")) method.setAttribute("aria-pressed", String(method === button));
+    this.painter.setMaskMethod(button.dataset.method);
+    if (!MASK_TOOLS.includes(this.painter.tool)) this.choose(document.querySelector('.tool[data-tool="background"]'));
   }
 
   #togglePicking() {

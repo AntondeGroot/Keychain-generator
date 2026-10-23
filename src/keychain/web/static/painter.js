@@ -1,60 +1,51 @@
 // Painting over the picture, on layers so an area can be both kept and detailed. On top:
 // connect lines (click A, then B, to join an area up) and splines through clicked points, open
 // as edges or closed as shapes. The erasers take off the connect lines and the curves as well as
-// paint. Areas drawn round text turn it on the back.
+// paint. Background and keep are marked with the brush or with shapes. Areas drawn round text
+// turn it on the back. The pointer goes to the tool in hand (handtools.js).
 
 import { HandDrawn } from "./handdrawn.js";
+import { handTools } from "./handtools.js";
 import { ConnectLines } from "./lines.js";
+import { MaskTool } from "./masktool.js";
 import { sizeOverlays } from "./overlays.js";
-import { ERASERS, PaintLayers } from "./paintlayers.js";
+import { PaintLayers } from "./paintlayers.js";
 import { SplineTool } from "./splinetool.js";
 import { TurnedText } from "./turnedtext.js";
 
 export class Painter {
-  /** layers: the painting canvases by name; overlays: the canvases for the curves, the areas
-   * round text and, on top and receiving the pointer, the connect lines. onPainted is told the
-   * brush after a stroke. */
+  /** layers: the painting canvases by name, the mask among them; overlays: the canvases for the
+   * curves, the areas round text, the mask's shapes and, on top and receiving the pointer, the
+   * connect lines. onPainted is told the tool after each change. */
   constructor(stack, pictureCanvas, layers, overlays, onPainted) {
     this.stack = stack;
     this.picture = pictureCanvas;
-    this.layers = new PaintLayers(layers);
+    const { mask, ...painted } = layers;
+    this.layers = new PaintLayers(painted);
     const scale = () => this.#canvasPxPerScreenPx();
+    this.mask = new MaskTool(mask, overlays.maskShapes, scale, () => this.onPainted(this.tool));
     this.curves = new HandDrawn(overlays.curves, scale);
     this.lines = new ConnectLines(overlays.lines, scale);
     this.spline = new SplineTool(this.curves, stack, () => this.paintColour, () => this.onPainted());
     this.turned = new TurnedText(overlays.turned, scale);
-    const linesCanvas = overlays.lines;
+    this.tools = handTools(this);
     this.onPainted = onPainted;
     this.onGuide = () => {}; // told what to do next whenever that changes
     this.paintColourName = "black";
-    this.tool = "background";
+    this.tool = null;
     this.paintColour = "#000000";
     this.brushScreenPx = 20;
     this.onPick = null;
-    this.last = null;
-    linesCanvas.addEventListener("pointerdown", (event) => this.#down(event));
-    linesCanvas.addEventListener("pointermove", (event) => this.#move(event));
-    linesCanvas.addEventListener("pointerup", () => this.#up());
-    linesCanvas.addEventListener("pointerleave", () => {
-      this.#up();
-      this.curves.hover(null, false);
-      this.turned.hover(null);
-      if (this.tool === "spline") this.spline.leave();
-    });
-    document.addEventListener("keydown", (event) => {
-      if (event.key !== "Escape") return;
-      this.curves.cancel();
-      this.lines.cancel();
-      this.turned.cancel();
-      this.#showGuide();
-    });
+    this.#listen(overlays.lines);
+    this.setTool("background");
   }
 
   /** Everything drawn by hand, as the server wants it: lines, edges, shapes and areas round text
-   * to turn, in picture pixels. */
+   * to turn, in picture pixels; and the steps the mask was made in, to edit it again. */
   get drawing() {
     const { connections } = this.lines;
-    return { connections, edges: this.curves.edges, shapes: this.curves.shapes, turned: this.turned.areas };
+    const { edges, shapes } = this.curves;
+    return { connections, edges, shapes, turned: this.turned.areas, mask_steps: this.mask.saved };
   }
 
   /** Draws the lines and curves again, as thin and sharp on screen as before: after zooming, say. */
@@ -62,44 +53,53 @@ export class Painter {
     sizeOverlays(this.#overlays(), this.picture, this.#canvasPxPerScreenPx());
     this.curves.draw();
     this.turned.draw();
+    this.mask.shapes.draw();
     this.lines.draw();
   }
 
   load(image) {
-    for (const canvas of [this.picture, ...this.#overlays(), ...Object.values(this.layers.canvases)]) {
+    const canvases = [this.picture, this.mask.history.canvas, ...this.#overlays(), ...Object.values(this.layers.canvases)];
+    for (const canvas of canvases) {
       canvas.width = image.naturalWidth;
       canvas.height = image.naturalHeight;
     }
     this.picture.getContext("2d").drawImage(image, 0, 0);
-    this.clear(this.layers.names, { lines: true, curves: true, turned: true });
+    this.clear(["mask", ...this.layers.names], { lines: true, curves: true, turned: true });
   }
 
   /** Clears the named layers, and the connect lines, the curves and the boxes when asked. */
   clear(layers, { lines = false, curves = false, turned = false } = {}) {
-    this.layers.clear(layers);
+    if (layers.includes("mask")) this.mask.clear();
+    this.layers.clear(layers.filter((name) => name !== "mask"));
     if (lines) this.lines.set([]);
     if (curves) this.curves.set([], []);
     if (turned) this.turned.set([]);
   }
 
-  /** Paint saved in a project: the layers as PNG data URLs (null if unpainted), and the drawing. */
-  async restore(layers, { connections = [], edges = [], shapes = [], turned = [] }) {
+  /** Paint saved in a project: the layers as PNG data URLs (null if unpainted), and the drawing.
+   * A project saved before the mask's steps were kept starts from its painted mask. */
+  async restore({ mask, ...layers }, { connections = [], edges = [], shapes = [], turned = [], mask_steps }) {
     await this.layers.restore(layers);
+    await this.mask.restore(mask_steps ?? { base: mask });
     this.lines.set(connections);
     this.curves.set(edges, shapes);
     this.turned.set(turned);
   }
 
-  /** A brush or a drawing tool by name, or null for none. */
+  /** A tool by name (handtools.js), or null for none. */
   setTool(tool) {
+    this.#inHand()?.putDown?.();
+    this.#inHand()?.cancel();
     this.tool = tool;
     this.stack.classList.toggle("no-tool", tool === null);
-    this.lines.cancel();
-    this.curves.cancel();
-    this.turned.cancel();
-    if (tool === "spline") this.spline.start();
-    else this.spline.stop();
     this.stack.classList.remove("on-handle");
+    this.#inHand()?.pickUp?.();
+    this.#showGuide();
+  }
+
+  /** How background and keep are marked: "brush" or "shape". */
+  setMaskMethod(method) {
+    this.mask.setMethod(method);
     this.#showGuide();
   }
 
@@ -112,6 +112,11 @@ export class Painter {
     this.brushScreenPx = screenPx;
   }
 
+  /** The brush's width in picture pixels. */
+  brushWidth() {
+    return this.brushScreenPx * this.#canvasPxPerScreenPx();
+  }
+
   /** While set, a click reports the picture's colour there instead of painting. */
   pickColours(onPick) {
     this.onPick = onPick;
@@ -120,67 +125,51 @@ export class Painter {
 
   /** One layer as a PNG data URL, or null when nothing was painted on it. */
   dataUrl(layer) {
-    return this.layers.dataUrl(layer);
+    return layer === "mask" ? this.mask.dataUrl() : this.layers.dataUrl(layer);
+  }
+
+  /** The pointer over the picture goes to the tool in hand; Esc and Delete as well. */
+  #listen(canvas) {
+    canvas.addEventListener("pointerdown", (event) => this.#down(event));
+    canvas.addEventListener("pointermove", (event) => this.#move(event));
+    canvas.addEventListener("pointerup", () => this.#up());
+    canvas.addEventListener("pointerleave", () => this.#inHand()?.leave?.());
+    document.addEventListener("keydown", (event) => {
+      if (event.target.closest?.("input, select, textarea")) return; // typing a number, say
+      if (event.key === "Escape") this.#inHand()?.cancel();
+      else if (event.key === "Delete" || event.key === "Backspace") this.#inHand()?.remove?.();
+      else return;
+      this.#showGuide();
+    });
   }
 
   #down(event) {
     const point = this.#point(event);
-    if (this.onPick) {
-      this.onPick(this.#colourAt(point));
-    } else if (this.tool === "connect") {
-      if (this.lines.click(point)) this.onPainted();
-      this.#showGuide();
-    } else if (this.tool === "spline") {
-      if (this.spline.down(point, !event.altKey)) event.target.setPointerCapture(event.pointerId);
-      this.#showGuide();
-    } else if (this.tool === "turn-text") {
-      if (this.turned.click(point)) this.onPainted();
-      this.#showGuide();
-    } else if (this.tool) {
-      event.target.setPointerCapture(event.pointerId);
-      this.last = point;
-      this.#stroke(point, point);
-    }
+    if (this.onPick) return this.onPick(this.#colourAt(point));
+    if (this.#inHand()?.down(point, event) === true) event.target.setPointerCapture(event.pointerId);
+    this.#showGuide();
   }
 
   #move(event) {
-    const point = this.#point(event);
-    if (this.tool === "spline" && !this.onPick) this.spline.move(point, !event.altKey);
-    if (this.tool === "turn-text") this.turned.hover(point);
-    if (!this.last) return;
-    this.#stroke(this.last, point);
-    this.last = point;
+    if (!this.onPick) this.#inHand()?.move?.(this.#point(event), event);
   }
 
   #up() {
-    if (this.tool === "spline") {
-      this.spline.up();
-      this.#showGuide();
-    }
-    if (!this.last) return;
-    this.last = null;
-    this.onPainted(this.tool);
+    this.#inHand()?.up?.();
+    this.#showGuide();
   }
 
-  #stroke(from, to) {
-    const eraser = ERASERS[this.tool];
-    const width = this.brushScreenPx * this.#canvasPxPerScreenPx();
-    const erasedLines = eraser?.lines && this.lines.eraseNear(to, width / 2);
-    const erasedCurves = eraser?.curves && this.curves.eraseNear(to, width / 2);
-    if (erasedLines || erasedCurves) this.onPainted();
-    this.layers.stroke(this.tool, from, to, width, this.paintColour);
+  #inHand() {
+    return this.tools[this.tool] ?? null;
   }
 
-  /** The guide for the drawing tools, and none for the brushes. */
+  /** What to do next with the tool in hand; nothing for the brushes. */
   #showGuide() {
-    if (this.tool === "connect") this.onGuide(this.lines.guide());
-    else if (this.tool === "spline") this.onGuide(this.curves.guide(this.paintColourName));
-    else if (this.tool === "turn-text") this.onGuide(this.turned.guide());
-    else this.onGuide("");
+    this.onGuide(this.#inHand()?.guide() ?? "");
   }
 
   #overlays() {
-    return [this.curves.canvas, this.turned.canvas, this.lines.canvas];
+    return [this.curves.canvas, this.turned.canvas, this.mask.shapes.canvas, this.lines.canvas];
   }
 
   #point(event) {

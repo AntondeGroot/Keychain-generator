@@ -1,19 +1,16 @@
 // The layers painted with a brush, in the picture's own size so the server can lay them over
-// pixel for pixel: "paint" with a filament colour, "mask" for background (red) and keep (green),
-// "detail" for smooth (blue) and detailed (yellow). Each section has its eraser.
+// pixel for pixel: "paint" with a filament colour, "detail" for smooth (blue) and detailed
+// (yellow). Each has its eraser. The background and keep mask is kept apart (maskhistory.js).
 
 import { loadedImage } from "./project.js";
 
 /** What each eraser takes off: its layers, and the connect lines or the curves drawn over them. */
 export const ERASERS = {
-  "erase-mask": { layers: ["mask"] },
   "erase-details": { layers: ["detail"], lines: true },
   "erase-paint": { layers: ["paint"], curves: true },
 };
 
 const BRUSHES = {
-  background: { layer: "mask", colour: "#ff0000" },
-  keep: { layer: "mask", colour: "#00ff00" },
   smooth: { layer: "detail", colour: "#0000ff" },
   detailed: { layer: "detail", colour: "#ffff00" },
   paint: { layer: "paint", colour: null }, // in the paint colour

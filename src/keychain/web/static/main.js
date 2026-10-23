@@ -33,7 +33,7 @@ const painter = new Painter(
   element("painter"),
   element("picture-canvas"),
   { paint: element("paint-canvas"), mask: element("mask-canvas"), detail: element("detail-canvas") },
-  { curves: element("curves-canvas"), turned: element("turned-canvas"), lines: element("lines-canvas") },
+  { curves: element("curves-canvas"), turned: element("turned-canvas"), maskShapes: element("mask-shapes-canvas"), lines: element("lines-canvas") },
   painted,
 );
 painter.onGuide = (text) => showGuide(element("tool-guide"), text);

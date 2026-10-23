@@ -80,12 +80,19 @@
           <button type="button" class="tool" data-tool="keep" aria-pressed="false">Keep</button>
           <button type="button" class="tool" data-tool="erase-mask" aria-pressed="false">Erase</button>
         </div>
-        <p class="hint">Where the picture's background is guessed wrong.</p>
+        <div class="row" role="group" aria-label="Mark with">
+          <button type="button" class="method" data-method="brush" aria-pressed="true">Brush</button>
+          <button type="button" class="method" data-method="shape" aria-pressed="false">Shape</button>
+        </div>
+        <p class="hint">Where the picture's background is guessed wrong. Choose what to mark, then how.</p>
         <dl class="tool-help">
           <div><dt>Background</dt><dd>Leave this part out. The colours are then found again in what is left;
             the ones you added or changed stay.</dd></div>
           <div><dt>Keep</dt><dd>Part of the keychain, even if it looks like background.</dd></div>
           <div><dt>Erase</dt><dd>Takes off background and keep.</dd></div>
+          <div><dt>Brush</dt><dd>Paint it on.</dd></div>
+          <div><dt>Shape</dt><dd>Click points round an area, and the first point again to close it. Drag a
+            point to change the shape later; Delete takes off the shape under the pointer.</dd></div>
         </dl>
         <button type="button" id="clear-mask">Clear background and keep</button>
       </fieldset>
@@ -182,6 +189,7 @@
             <canvas id="detail-canvas"></canvas>
             <canvas id="curves-canvas"></canvas>
             <canvas id="turned-canvas"></canvas>
+            <canvas id="mask-shapes-canvas"></canvas>
             <canvas id="lines-canvas"></canvas>
           </div>
         </div>
