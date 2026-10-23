@@ -47,8 +47,8 @@ function maskTool(painter, name, action) {
   return {
     down: (point) => mask.down(point, action, painter.brushWidth()),
     move: (point) => mask.move(point),
-    up: () => mask.up(),
-    leave: () => mask.leave(),
+    up: () => mask.up(action),
+    leave: () => mask.leave(action),
     guide: () => mask.guide(action),
     cancel: () => mask.cancel(),
     remove: () => mask.remove(),

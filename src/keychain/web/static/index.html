@@ -82,7 +82,15 @@
         </div>
         <div class="row" role="group" aria-label="Mark with">
           <button type="button" class="method" data-method="brush" aria-pressed="true">Brush</button>
-          <button type="button" class="method" data-method="shape" aria-pressed="false">Shape</button>
+          <button type="button" class="method" data-method="spline" aria-pressed="false">Spline</button>
+          <button type="button" class="method" data-method="circle" aria-pressed="false">Circle</button>
+          <button type="button" class="method" data-method="rect" aria-pressed="false">Rectangle</button>
+        </div>
+        <div class="row shape-size" id="shape-size" hidden>
+          <label>Diameter <input type="number" min="0" step="0.1" data-size="diameter"> mm</label>
+          <label>Width <input type="number" min="0" step="0.1" data-size="width"> mm</label>
+          <label>Height <input type="number" min="0" step="0.1" data-size="height"> mm</label>
+          <label>Corner radius <input type="number" min="0" step="0.1" data-size="radius"> mm</label>
         </div>
         <p class="hint">Where the picture's background is guessed wrong. Choose what to mark, then how.</p>
         <dl class="tool-help">
@@ -91,8 +99,11 @@
           <div><dt>Keep</dt><dd>Part of the keychain, even if it looks like background.</dd></div>
           <div><dt>Erase</dt><dd>Takes off background and keep.</dd></div>
           <div><dt>Brush</dt><dd>Paint it on.</dd></div>
-          <div><dt>Shape</dt><dd>Click points round an area, and the first point again to close it. Drag a
-            point to change the shape later; Delete takes off the shape under the pointer.</dd></div>
+          <div><dt>Spline</dt><dd>Click points round an area, and the first point again to close it.</dd></div>
+          <div><dt>Circle</dt><dd>Press at the centre and drag out, or click the centre and then the rim.</dd></div>
+          <div><dt>Rectangle</dt><dd>Drag from corner to corner, or click both corners.</dd></div>
+          <div><dt>Shapes</dt><dd>Drag a handle to change one. Click its outline to type its sizes in mm.
+            Delete takes off the shape under the pointer.</dd></div>
         </dl>
         <button type="button" id="clear-mask">Clear background and keep</button>
       </fieldset>

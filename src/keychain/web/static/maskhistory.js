@@ -3,8 +3,8 @@
 // a shape can be moved after more was painted, and what came after it stays on top. A project
 // saved before the steps were kept starts from its painted mask.
 
-import { spline } from "./handdrawn.js";
 import { loadedImage } from "./project.js";
+import { outline } from "./shapekinds.js";
 
 const COLOURS = { background: "#ff0000", keep: "#00ff00", erase: "#000000" }; // as the server reads them
 
@@ -12,7 +12,7 @@ export class MaskHistory {
   constructor(canvas) {
     this.canvas = canvas;
     this.base = null; // the mask a project was saved with, before its steps were kept
-    this.steps = []; // each { action, stroke: { width, points } } or { action, spline: points }
+    this.steps = []; // each { action, stroke: { width, points } }, or { action } with a shape (shapekinds.js)
   }
 
   get painted() {
@@ -73,7 +73,7 @@ export class MaskHistory {
 
 function drawStep(context, step) {
   paintAs(context, step.action);
-  if (step.spline) return fillClosed(context, spline(step.spline, true));
+  if (!step.stroke) return fillClosed(context, outline(step));
   const { points } = step.stroke;
   for (let i = 0; i < points.length; i++) drawSegment(context, step, points[Math.max(0, i - 1)], points[i]);
 }

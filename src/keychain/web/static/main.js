@@ -107,6 +107,7 @@ async function updatePreview() {
   const { svg, back: backSvg, pixel_mm: pixelMm, hole, ring, warning } = await response.json();
   preview.show(svg, ring);
   back.show(backSvg, pixelMm);
+  painter.mask.setPixelMm(pixelMm);
   element("resolution-warning").textContent = warning ?? "";
   element("resolution-warning").hidden = !warning;
   updateDownloadButton();
