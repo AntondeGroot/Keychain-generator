@@ -3,8 +3,8 @@
 // point to close it into a shape. An edge redraws the border between the colours either side
 // of it, a shape is filled with its colour. A click near a finished curve snaps onto it, so a
 // new spline can start or end exactly on another one; holding Alt places the point freely.
-// While drawing, the curve runs on to the pointer, as it would be with a click there. While
-// editing (splineedit.js), every point shows as a handle to drag.
+// While drawing, the curve runs on to the pointer, as it would be with a click there. Otherwise
+// the points of the curve under the pointer show as handles to drag (splineedit.js).
 
 const SAMPLES_PER_SPAN = 24; // as on the server, so the page shows the curve that gets made
 const CLOSE_SCREEN_PX = 8; // a click this close to a point finishes the curve
@@ -19,7 +19,7 @@ const SHAPE_SMALLEST = 3; // points a shape needs before it can be closed
 const SNAP_SCREEN_PX = 8; // a click this close to a finished curve lands on it
 const SNAP_COLOUR = "#d81b60"; // where a click would land on a finished curve
 const SNAP_SCREEN_RADIUS_PX = 4;
-const HANDLE_SCREEN_PX = 4; // a point of a curve, to drag while editing
+const HANDLE_SCREEN_PX = 4; // a point of a curve, to drag
 const HANDLE_LIT_SCREEN_PX = 6; // the one under the pointer
 const HANDLE_FILL = "#ffffff";
 
@@ -33,7 +33,7 @@ export class HandDrawn {
     this.finished = null; // "Edge" or "Shape": what the spline just finished became, to say so
     this.snap = null; // [x, y] on a finished curve, where a click under the pointer would land
     this.pointer = null; // { x, y } in picture pixels, while over the picture
-    this.handles = null; // while editing: { near }, every point shown, the one at near lit up
+    this.handles = null; // { curves, near }: the points of these curves shown, the one at near lit up
   }
 
   /** What to do next, said plainly: the page shows it above the picture. */
@@ -43,7 +43,7 @@ export class HandDrawn {
     const done = { Edge: "Edge smoothed.", Shape: "Shape added." }[this.finished];
     if (count === 0 && done) return `${done} Click to draw another curve, or pick another tool.`;
     if (count === 0)
-      return "Spline: click to draw a curve. It doesn't need to be a closed loop: use it to replace a generated harsh edge with a smooth one. You can connect start to end and create a shape: useful for small detailed areas. Click on another curve (pink dot) to start or end exactly on it; hold Alt to place a point freely.";
+      return "Spline: click to draw a curve. It doesn't need to be a closed loop: use it to replace a generated harsh edge with a smooth one. You can connect start to end and create a shape: useful for small detailed areas. Click on another curve (pink dot) to start or end exactly on it; hold Alt to place a point freely. Move over a curve to see its points, and drag one to move it.";
     if (count === 1) return "Spline: keep clicking along the curve.";
     if (count < SHAPE_SMALLEST) return `Spline: keep clicking along the curve. ${finish} Esc cancels.`;
     return `Spline: keep clicking along the curve. ${finish} Want a shape in ${colourName} instead? Click the first point (green ring). Esc cancels.`;
@@ -119,10 +119,9 @@ export class HandDrawn {
     if (this.handles) this.#drawHandles(context, scale);
   }
 
-  /** Every point of every curve, to drag; the one under the pointer lit up. */
+  /** The points of the curves under the pointer, to drag; the one under the pointer lit up. */
   #drawHandles(context, scale) {
-    const points = [...this.edges.flat(), ...this.shapes.flatMap(({ points }) => points)];
-    for (const point of points) {
+    for (const point of this.handles.curves.flat()) {
       const lit = point === this.handles.near;
       handle(context, point, (lit ? HANDLE_LIT_SCREEN_PX : HANDLE_SCREEN_PX) * scale, lit);
     }
@@ -161,16 +160,26 @@ export class HandDrawn {
   /** The nearest point on a finished curve within reach, as [x, y]; null when none is near.
    * The curves whose points are in leaveOut do not count, such as those being moved. */
   onCurve(point, leaveOut = new Set()) {
+    return this.#nearestOnCurve(point, leaveOut)?.at ?? null;
+  }
+
+  /** The points of the finished curve within reach of the point; null when none is near. */
+  curveNear(point) {
+    return this.#nearestOnCurve(point, new Set())?.points ?? null;
+  }
+
+  #nearestOnCurve(point, leaveOut) {
     let nearest = null;
     let nearestDistance = SNAP_SCREEN_PX * this.scale();
     const curves = [
-      ...this.edges.filter((points) => !leaveOut.has(points)).map((points) => spline(points, false)),
-      ...this.shapes.filter(({ points }) => !leaveOut.has(points)).map(({ points }) => spline(points, true)),
-    ];
-    for (const samples of curves) {
+      ...this.edges.map((points) => ({ points, closed: false })),
+      ...this.shapes.map(({ points }) => ({ points, closed: true })),
+    ].filter(({ points }) => !leaveOut.has(points));
+    for (const { points, closed } of curves) {
+      const samples = spline(points, closed);
       for (let i = 1; i < samples.length; i++) {
         const on = nearestOnSegment(point, samples[i - 1], samples[i]);
-        if (distance(point, on) <= nearestDistance) [nearest, nearestDistance] = [on, distance(point, on)];
+        if (distance(point, on) <= nearestDistance) [nearest, nearestDistance] = [{ at: on, points }, distance(point, on)];
       }
     }
     return nearest;

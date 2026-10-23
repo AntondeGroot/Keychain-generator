@@ -1,14 +1,13 @@
-// The editable list of filament colours: a swatch, a name, a paint and a remove button per colour.
+// The editable list of filament colours: a swatch, a name, a shade choice and a remove button each.
 // Colours found in the picture can be found again; ones added or changed by hand stay.
 // A colour can be a shade of another instead of a filament: a dark or light red, printed in red.
 
 const NAME_PATTERN = "[a-z0-9_\\-]*"; // names end up in file names, so only these characters
 
 export class ColourList {
-  constructor(list, onChange, onPaint) {
+  constructor(list, onChange) {
     this.list = list;
     this.onChange = onChange;
-    this.onPaint = onPaint;
     this.colours = [];
   }
 
@@ -73,19 +72,12 @@ export class ColourList {
     name.setAttribute("aria-label", `Name of colour ${index + 1}`);
     name.addEventListener("change", () => this.#update(index, { name: name.value.trim().toLowerCase() }));
 
-    const paint = Object.assign(document.createElement("button"), { type: "button", textContent: "Paint" });
-    paint.className = "tool";
-    paint.dataset.tool = "paint";
-    paint.setAttribute("aria-pressed", "false");
-    paint.setAttribute("aria-label", `Paint with colour ${index + 1}`);
-    paint.addEventListener("click", () => this.onPaint(paint, this.colours[index].hex));
-
     const remove = Object.assign(document.createElement("button"), { type: "button", textContent: "×" });
     remove.setAttribute("aria-label", `Remove colour ${index + 1}`);
     remove.addEventListener("click", () => this.#remove(index));
 
     const row = document.createElement("li");
-    row.append(swatch, name, this.#shadeChoice(colour, index), paint, remove);
+    row.append(swatch, name, this.#shadeChoice(colour, index), remove);
     return row;
   }
 

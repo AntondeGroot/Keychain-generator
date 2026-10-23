@@ -110,11 +110,10 @@ button.primary { background: var(--accent); color: var(--accent-text); border-co
 button:disabled { opacity: 0.5; cursor: default; }
 
 #colours { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-#colours li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
-#colours input[type="text"] { flex: 1; min-width: 0; }
+#colours li { display: flex; gap: 6px; align-items: center; }
+#colours input[type="text"] { flex: 1 1 4em; min-width: 3em; }
 #colours input[type="color"] { width: 36px; height: 28px; padding: 0; border: none; background: none; }
-/* What the colour is printed as, on a line of its own under the name: the column is narrow. */
-#colours select { order: 1; flex: 0 1 auto; max-width: none; margin-left: 42px; }
+#colours select { flex: 0 1 auto; min-width: 0; }
 select { font: inherit; max-width: 160px; }
 
 .canvas-panel {
@@ -155,6 +154,11 @@ select { font: inherit; max-width: 160px; }
 .stack.on-handle #lines-canvas { cursor: move; }
 .stack.no-tool #lines-canvas { cursor: default; }
 .tool svg { width: 16px; height: 16px; vertical-align: -3px; }
+/* The colour to paint in: its name after a dot of the colour. */
+.paint-colours button::before {
+  content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px;
+  border-radius: 50%; background: var(--swatch); box-shadow: 0 0 0 1px var(--line);
+}
 
 .preview { background: var(--checker); min-height: 200px; }
 /* Something about the picture worth knowing, such as too few pixels for its size. */
