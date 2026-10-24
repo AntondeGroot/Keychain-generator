@@ -29,6 +29,7 @@ SPEC_FIELDS = (
     "shade_mm",
     "rim_mm",
     "hole_mm",
+    "hole_rim_mm",
     "curve_tolerance_mm",
 )
 JSON = "application/json"
@@ -61,7 +62,7 @@ def preview_action(request: dict) -> Response:
     landings = [landing(turn) for turn in keychain.turns]
     back = back_svg(keychain.back, keychain.outline.shape, keychain.picture, landings) if landings else None
     spec = _spec(request.get("spec", {}))
-    ring = {"hole_mm": spec.hole_mm / 2, "outer_mm": spec.hole_mm / 2 + spec.hole_wall_mm}
+    ring = {"hole_mm": spec.hole_mm / 2, "outer_mm": spec.hole_mm / 2 + spec.hole_rim_mm}
     hole = list(keychain.outline.hole_centre)
     warning = keychain.resolution.warning()
     pixel_mm = keychain.resolution.pixel_mm  # the page moves turned text in its picture's pixels

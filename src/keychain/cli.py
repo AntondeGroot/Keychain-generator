@@ -24,6 +24,7 @@ SIZE_OPTIONS = {
     "core": "core_mm",
     "rim": "rim_mm",
     "hole": "hole_mm",
+    "hole_rim": "hole_rim_mm",
 }
 
 
@@ -149,6 +150,9 @@ def _add_make(commands) -> None:
         "--rim", type=float, help=f"border around the picture, mm (default {defaults.rim_mm})"
     )
     parser.add_argument("--hole", type=float, help=f"keyring hole diameter, mm (default {defaults.hole_mm})")
+    parser.add_argument(
+        "--hole-rim", type=float, help=f"rim round the keyring hole, mm (default {defaults.hole_rim_mm})"
+    )
     parser.add_argument(
         "--rim-colour",
         help="colour for the rim, the ring and the core: one of the colours by name, or any as "

@@ -13,8 +13,8 @@ class KeychainSpec:
     core_mm: float = 1.4  # the middle layer between the two pictures, in the rim's colour
     shade_mm: float = 0.2  # a shade's outer layer: one print layer of a colour over another
     rim_mm: float = 1.5  # border around the picture, in the rim colour
-    hole_mm: float = 4.0  # keyring hole diameter
-    hole_wall_mm: float = 2.5  # material around the hole
+    hole_mm: float = 5.0  # keyring hole diameter
+    hole_rim_mm: float = 2.5  # the rim round the keyring hole, wider than the picture's for strength
     min_line_mm: float = 0.4  # narrowest line the nozzle prints reliably
     gap_mm: float = 2.0  # openings in the drawing's outer line up to this wide are closed
     smoothing_mm: float = 0.08  # evens out JPEG noise and pixel steps along colour edges
@@ -25,7 +25,7 @@ class KeychainSpec:
         if self.width_mm is None and self.height_mm is None:
             raise ValueError("give the picture a width, a height, or both")
         layers = (self.thickness_mm, self.core_mm, self.shade_mm)
-        if min(*self._sizes_given(), *layers, self.rim_mm, self.hole_mm) <= 0:
+        if min(*self._sizes_given(), *layers, self.rim_mm, self.hole_mm, self.hole_rim_mm) <= 0:
             raise ValueError("sizes must be larger than 0 mm")
         if self.core_mm >= self.thickness_mm:
             raise ValueError(f"the core ({self.core_mm} mm) must be thinner than the keychain")
