@@ -21,14 +21,18 @@ def test_automatic_hole_goes_above_the_picture_its_rim_clear_of_it():
     assert outline.shape.buffer(spec.simplify_mm).contains(outline.ring)
 
 
-def test_the_ink_band_round_the_automatic_hole_stays_off_the_picture():
-    # The band is in the rim colour on both faces, over whatever lies beneath: on the picture it
-    # would paint the top of a quiff black.
-    picture = Polygon([(-20, -15), (20, -15), (8, 15)])
+def test_the_holes_rim_stays_off_the_picture_and_a_hole_inside_it_is_only_cut_through():
+    # The rim is in the rim colour on both faces: on the picture it would paint over it.
+    picture = Polygon([(-20, -15), (20, -15), (20, 15), (-20, 15)])
+    spec = KeychainSpec()
 
-    outline = keychain_outline(picture, KeychainSpec())
+    inside = keychain_outline(picture, spec, hole_centre=(0, 0))
+    across_the_edge = keychain_outline(picture, spec, hole_centre=(0, 15))
 
-    assert outline.ring.intersection(picture).area < 1e-3
+    assert inside.ring.is_empty
+    assert not inside.shape.intersects(Point(0, 0).buffer(spec.hole_mm / 2 - 0.01))  # still a hole
+    assert across_the_edge.ring.area > 1  # the half off the picture has its rim
+    assert across_the_edge.ring.intersection(picture).area < 1e-6
 
 
 def test_the_hole_has_a_rim_of_its_own_width_not_the_pictures():

@@ -14,7 +14,7 @@ JOIN_ROUNDING_MM = 2.0  # rounds the inside corners all round, such as between a
 @dataclass(frozen=True)
 class Outline:
     shape: BaseGeometry  # the keychain seen from above, with the hole cut out
-    ring: BaseGeometry  # the hole's rim, in the rim colour on both faces even over the picture
+    ring: BaseGeometry  # the hole's rim where it is off the picture; on it, the hole is cut through
     hole_centre: tuple[float, float]
 
 
@@ -30,7 +30,7 @@ def keychain_outline(
     joined = joined.union(_neck(joined, ring, spec.neck_mm))
     rounded = joined.buffer(JOIN_ROUNDING_MM).buffer(-JOIN_ROUNDING_MM)
     shape = rounded.difference(hole).simplify(spec.simplify_mm)
-    return Outline(shape, ring.difference(hole), (centre.x, centre.y))
+    return Outline(shape, ring.difference(hole).difference(picture), (centre.x, centre.y))
 
 
 def _default_hole_centre(picture: BaseGeometry, spec: KeychainSpec) -> Point:
