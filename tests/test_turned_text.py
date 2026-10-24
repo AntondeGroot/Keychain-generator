@@ -28,6 +28,21 @@ def test_turned_text_moves_and_where_it_was_takes_the_colour_round_it():
     assert colour_at(face, Point(-8.5, 0)) == ["black"]  # the front is left as it was
 
 
+def test_turned_text_is_turned_anticlockwise_as_seen_from_behind_and_sized_about_its_middle():
+    # A black mark 3 by 2 mm, left of the middle of the area round it, (-5, 1), from 1 mm below
+    # it to 1 mm above. Turned over it lies right of the middle; at half the size from x = -4.5
+    # to -3 and y = 0.5 to 1.5; a quarter turn anticlockwise from behind, so clockwise from the
+    # front, puts it below the middle: from x = -5.5 to -4.5 and y = -1 to 0.5.
+    picture = box(-20, -10, 20, 10)
+    mark = box(-9, 0, -6, 2)
+    face = [Layer("red", picture.difference(mark), "#e03838"), Layer("black", mark, "#000000")]
+
+    back = back_face(face, [Turn(box(-10, -4, 0, 6), (0, 0), degrees=90, scale=0.5)], picture, "black")
+
+    [black] = [layer.shape for layer in back if layer.name == "black"]
+    assert black.symmetric_difference(box(-5.5, -1, -4.5, 0.5)).area == pytest.approx(0, abs=1e-6)
+
+
 def test_where_text_was_takes_the_colour_it_sits_on_not_the_ink_of_the_outlines_round_it():
     # Cream with a red mark, and ink lines along the top and bottom of the area round the mark:
     # 20 mm of the area's edge runs through ink, 10 mm through cream. The mark moves 3 mm right

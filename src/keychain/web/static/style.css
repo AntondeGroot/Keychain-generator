@@ -179,6 +179,8 @@ select { font: inherit; max-width: 160px; }
 .back { margin: 8px 0 0; }
 .back[hidden] { display: none; }
 .back figcaption { margin-bottom: 4px; color: var(--muted); font-size: 13px; }
+.turn-fields { display: grid; gap: 4px; margin-top: 6px; }
+.turn-fields label { justify-content: flex-start; }
 .turned-text { fill: transparent; cursor: move; touch-action: none; } /* grabbed inside too */
 .preview.placing svg { cursor: crosshair; }
 /* Where the ring would end up: see-through, so the picture under it still shows. */

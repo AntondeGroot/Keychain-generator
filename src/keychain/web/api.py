@@ -141,7 +141,8 @@ def _drawing(request: dict) -> Drawing:
 
 def _turned_text(text: dict) -> TurnedText:
     x, y = text.get("shift") or (0, 0)
-    return TurnedText(_points(text["points"]), (float(x), float(y)))
+    degrees, scale = float(text.get("degrees", 0)), float(text.get("scale", 1))
+    return TurnedText(_points(text["points"]), (float(x), float(y)), degrees, scale)
 
 
 def _points(points: list) -> tuple:

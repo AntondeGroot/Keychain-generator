@@ -2,7 +2,7 @@
 // server turns the back inside each area to read the right way round. Click points round the
 // text and the first point again to close the area, a spline as the paint spline is. A click
 // inside a closed area, while none is being drawn, takes it off. Where the text lands on the back
-// is moved in the back's preview.
+// is moved in the back's preview, and turned and sized in the fields under it.
 
 import { insideCurve } from "./closedcurve.js";
 import { spline } from "./handdrawn.js";
@@ -18,7 +18,7 @@ export class TurnedText {
   constructor(canvas, canvasPxPerScreenPx) {
     this.canvas = canvas;
     this.scale = canvasPxPerScreenPx;
-    this.areas = []; // { points: [[x, y], ...], shift: [x, y] } in picture pixels
+    this.areas = []; // { points: [[x, y], ...], shift: [x, y], degrees, scale }, in picture pixels
     this.current = null; // the points of the area being drawn
     this.pointer = null;
   }
@@ -40,7 +40,7 @@ export class TurnedText {
     } else if (this.current.length >= SMALLEST && distance(this.current[0], at) <= CLOSE_SCREEN_PX * this.scale()) {
       const points = this.current;
       this.current = null;
-      return this.#changed([...this.areas, { points, shift: [0, 0] }]);
+      return this.#changed([...this.areas, { points, shift: [0, 0], degrees: 0, scale: 1 }]);
     } else {
       this.current.push(at);
     }
@@ -53,10 +53,12 @@ export class TurnedText {
     if (this.current) this.draw();
   }
 
-  /** Moves where an area's text lands on the back, by a move in picture pixels. */
-  shift(index, [x, y]) {
-    const [shiftX, shiftY] = this.areas[index].shift;
-    this.areas[index].shift = [shiftX + x, shiftY + y];
+  /** Moves where an area's text lands on the back, by a move in picture pixels, or sets how far
+   * it turns, anticlockwise as seen from behind, and how large it is. */
+  change(index, { move: [x, y] = [0, 0], ...set }) {
+    const area = this.areas[index];
+    area.shift = [area.shift[0] + x, area.shift[1] + y];
+    Object.assign(area, set);
   }
 
   cancel() {
@@ -64,9 +66,11 @@ export class TurnedText {
     this.draw();
   }
 
-  /** Areas from a project; boxes saved before areas were splines are left out. */
+  /** Areas from a project; boxes saved before areas were splines are left out, and areas saved
+   * before they could turn or be sized are as they were. */
   set(areas) {
-    this.areas = areas.filter((area) => area.points).map(({ points, shift }) => ({ points, shift: [...shift] }));
+    const kept = areas.filter((area) => area.points);
+    this.areas = kept.map(({ points, shift, degrees = 0, scale = 1 }) => ({ points, shift: [...shift], degrees, scale }));
     this.current = null;
     this.draw();
   }
