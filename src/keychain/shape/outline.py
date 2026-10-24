@@ -14,7 +14,7 @@ JOIN_ROUNDING_MM = 2.0  # rounds the inside corners where the ring meets the rim
 @dataclass(frozen=True)
 class Outline:
     shape: BaseGeometry  # the keychain seen from above, with the hole cut out
-    ring: BaseGeometry  # a rim's width around the hole, ink on both faces even over the picture
+    ring: BaseGeometry  # the hole's rim, in the rim colour on both faces even over the picture
     hole_centre: tuple[float, float]
 
 
@@ -24,23 +24,20 @@ def keychain_outline(
     """With no hole centre given, the hole goes above the highest point of the picture."""
     centre = Point(hole_centre) if hole_centre else _default_hole_centre(picture, spec)
     hole = centre.buffer(spec.hole_mm / 2)
-    ring = centre.buffer(spec.hole_mm / 2 + spec.hole_wall_mm)
+    ring = centre.buffer(spec.hole_mm / 2 + spec.hole_rim_mm)
     body = picture.buffer(spec.rim_mm)
     joined = body.union(ring).union(_stem(body, ring, centre))
     rounded = joined.buffer(JOIN_ROUNDING_MM).buffer(-JOIN_ROUNDING_MM)
     shape = rounded.difference(hole).simplify(spec.simplify_mm)
-    # The tab is wider than this band for strength, but a wider band would paint over the top
-    # of the picture: the automatic hole is only a rim's width away from it.
-    band = centre.buffer(spec.hole_mm / 2 + spec.rim_mm).difference(hole)
-    return Outline(shape, band, (centre.x, centre.y))
+    return Outline(shape, ring.difference(hole), (centre.x, centre.y))
 
 
 def _default_hole_centre(picture: BaseGeometry, spec: KeychainSpec) -> Point:
-    """Above the highest point of the picture, with a rim's width between the hole and it.
+    """Above the highest point of the picture, with the hole's rim between the hole and it.
 
     Every other point of the picture is lower, so none of it comes closer to the hole."""
     top_x, top_y = max(_corners(picture), key=lambda corner: corner[1])
-    return Point(top_x, top_y + spec.rim_mm + spec.hole_mm / 2)
+    return Point(top_x, top_y + spec.hole_rim_mm + spec.hole_mm / 2)
 
 
 def _stem(body: BaseGeometry, ring: BaseGeometry, centre: Point) -> BaseGeometry:

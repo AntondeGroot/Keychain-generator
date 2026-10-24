@@ -117,7 +117,8 @@ lines, and unless `--rim-colour` says otherwise also the rim, the ring and the c
 | `--thickness` | `3.0` | total thickness in mm |
 | `--core` | `1.4` | middle layer in mm, in the rim colour; the faces share the rest |
 | `--rim` | `1.5` | border around the picture in mm |
-| `--hole` | `4.0` | keyring hole diameter in mm |
+| `--hole` | `5.0` | keyring hole diameter in mm |
+| `--hole-rim` | `2.5` | rim round the keyring hole in mm, wider than the picture's for a strong tab |
 | `--rim-colour` | ink | name of the colour for the rim, the ring and the core, such as `white`: a light rim keeps the picture's outer lines visible |
 | `--project` | | a `.keychain.json` saved by the web page, instead of the picture and `--colours`; the size options and `--rim-colour` given here win over the project's |
 | `--out` | `out` | output folder |
