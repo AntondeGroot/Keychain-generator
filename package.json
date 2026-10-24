@@ -1,0 +1,9 @@
+{
+  "name": "keychain-page-tests",
+  "private": true,
+  "description": "Tests for the keychain page's JavaScript, run with Node alone: the page needs no build and no packages.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test --experimental-test-coverage --test-coverage-include=src/keychain/web/static/*.js --test-coverage-lines=47 --test-coverage-functions=22 \"tests/js/**/*.test.js\""
+  }
+}

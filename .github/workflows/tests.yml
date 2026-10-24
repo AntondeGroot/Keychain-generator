@@ -45,15 +45,27 @@ jobs:
         run: |
           ruff check .
           ruff format --check .
-      # The page's JavaScript has no tests or linter, and a syntax error, such as a name declared
-      # twice, stops the whole page from loading. The check is the same everywhere, so once is
-      # enough. Read as a module from stdin, it does not depend on Node guessing the file type.
+      # The page's JavaScript is the same everywhere, so it is checked once, on the Node version
+      # in .node-version, which Renovate keeps up to date. It needs no packages.
+      - name: Set up Node from .node-version
+        if: runner.os == 'Linux'
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+      # A syntax error, such as a name declared twice, stops the whole page from loading. Read as
+      # a module from stdin, the check does not depend on Node guessing the file type.
       - name: Check the page's JavaScript
         if: runner.os == 'Linux'
         run: |
           for file in src/keychain/web/static/*.js; do
             node --input-type=module --check < "$file" || { echo "::error file=$file::syntax error in $file"; exit 1; }
           done
+      # The tests in tests/js, with floors for the share of lines and functions they run. The
+      # floors in package.json sit just below what the tests reach: raise them as tests are
+      # added, never lower them. Branches have no floor: V8 counts only those in code that ran.
+      - name: Test the page's JavaScript
+        if: runner.os == 'Linux'
+        run: npm test
       - name: Unit tests on Python ${{ steps.python.outputs.python-version }}
         run: pytest -q
 
