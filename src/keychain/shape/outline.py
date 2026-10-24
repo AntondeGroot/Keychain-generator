@@ -8,7 +8,7 @@ from shapely.ops import nearest_points
 
 from keychain.spec import KeychainSpec
 
-JOIN_ROUNDING_MM = 2.0  # rounds the inside corners where the ring meets the rim
+JOIN_ROUNDING_MM = 2.0  # rounds the inside corners all round, such as between a character's ears
 
 
 @dataclass(frozen=True)
@@ -27,6 +27,7 @@ def keychain_outline(
     ring = centre.buffer(spec.hole_mm / 2 + spec.hole_rim_mm)
     body = picture.buffer(spec.rim_mm)
     joined = body.union(ring).union(_stem(body, ring, centre))
+    joined = joined.union(_neck(joined, ring, spec.neck_mm))
     rounded = joined.buffer(JOIN_ROUNDING_MM).buffer(-JOIN_ROUNDING_MM)
     shape = rounded.difference(hole).simplify(spec.simplify_mm)
     return Outline(shape, ring.difference(hole), (centre.x, centre.y))
@@ -47,6 +48,14 @@ def _stem(body: BaseGeometry, ring: BaseGeometry, centre: Point) -> BaseGeometry
     nearest_on_body, _ = nearest_points(body, centre)
     ring_radius = centre.distance(Point(ring.exterior.coords[0]))
     return LineString([nearest_on_body, centre]).buffer(ring_radius)
+
+
+def _neck(joined: BaseGeometry, ring: BaseGeometry, radius_mm: float) -> BaseGeometry:
+    """Fills the inside corners where the ring meets the keychain, as a fillet of this radius,
+    so the tab widens into it; further from the ring the outline keeps its own corners. A fillet
+    touches the keychain up to about twice its radius from the ring."""
+    filled = joined.buffer(radius_mm).buffer(-radius_mm).difference(joined)
+    return filled.intersection(ring.buffer(2 * radius_mm))
 
 
 def _corners(shape: BaseGeometry) -> list[tuple[float, float]]:
