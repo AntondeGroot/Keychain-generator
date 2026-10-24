@@ -1,5 +1,5 @@
 import pytest
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Point, Polygon, box
 
 from keychain.shape.outline import keychain_outline
 from keychain.spec import KeychainSpec
@@ -41,3 +41,15 @@ def test_the_hole_has_a_rim_of_its_own_width_not_the_pictures():
     hole = centre.buffer(2)
     assert picture.distance(hole) == pytest.approx(3, abs=0.01)  # clear of the picture by its own rim
     assert outline.ring.area == pytest.approx(centre.buffer(2 + 3).difference(hole).area, rel=0.01)
+
+
+def test_a_wider_neck_fills_out_where_the_tab_meets_the_keychain_and_nowhere_else():
+    # A picture with a deep V cut into its bottom, far from the hole above its top right corner.
+    picture = Polygon([(-20, -15), (-8, -15), (0, -5), (8, -15), (20, -15), (20, 15), (-20, 15)])
+
+    narrow = keychain_outline(picture, KeychainSpec(neck_mm=2)).shape
+    wide = keychain_outline(picture, KeychainSpec(neck_mm=8)).shape
+
+    near_the_tab = box(5, 0, 30, 30)
+    assert wide.difference(narrow).intersection(near_the_tab).area > 5
+    assert narrow.symmetric_difference(wide).difference(near_the_tab).area < 0.05  # the V stays cut

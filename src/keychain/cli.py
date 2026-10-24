@@ -25,6 +25,7 @@ SIZE_OPTIONS = {
     "rim": "rim_mm",
     "hole": "hole_mm",
     "hole_rim": "hole_rim_mm",
+    "neck": "neck_mm",
 }
 
 
@@ -152,6 +153,9 @@ def _add_make(commands) -> None:
     parser.add_argument("--hole", type=float, help=f"keyring hole diameter, mm (default {defaults.hole_mm})")
     parser.add_argument(
         "--hole-rim", type=float, help=f"rim round the keyring hole, mm (default {defaults.hole_rim_mm})"
+    )
+    parser.add_argument(
+        "--neck", type=float, help=f"how wide the tab meets the keychain, mm (default {defaults.neck_mm})"
     )
     parser.add_argument(
         "--rim-colour",

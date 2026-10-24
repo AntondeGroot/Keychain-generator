@@ -30,6 +30,7 @@ SPEC_FIELDS = (
     "rim_mm",
     "hole_mm",
     "hole_rim_mm",
+    "neck_mm",
     "curve_tolerance_mm",
 )
 JSON = "application/json"
