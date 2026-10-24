@@ -42,7 +42,7 @@ const tools = new ToolButtons(painter, element("pick-colour"), (hex) => colours.
 const colours = new ColourList(element("colours"), coloursChanged);
 const paintColours = new PaintColours(element("paint-colours"), (...chosen) => tools.paintIn(...chosen));
 const preview = new Preview(element("preview"), placeRing);
-const back = new BackPreview(element("back"), moveTurnedText);
+const back = new BackPreview(element("back"), changeTurnedText);
 const rim = new RimChoice(element("rim"), element("rim-swatch"), schedulePreview);
 const sides = ["width", "height"].map((side) => ({ tick: element(`by-${side}`), input: element(side) }));
 const size = new PictureSize(sides, schedulePreview);
@@ -106,7 +106,7 @@ async function updatePreview() {
   if (!response || request !== latestRequest) return; // a newer change is already on its way
   const { svg, back: backSvg, pixel_mm: pixelMm, hole, ring, warning } = await response.json();
   preview.show(svg, ring);
-  back.show(backSvg, pixelMm);
+  back.show(backSvg, pixelMm, painter.turned.areas);
   painter.mask.setPixelMm(pixelMm);
   element("resolution-warning").textContent = warning ?? "";
   element("resolution-warning").hidden = !warning;
@@ -161,9 +161,9 @@ function updateDownloadButton() {
   element("download").disabled = isBusy() || !hasPreview;
 }
 
-/** Turned text moved on the back's preview, in picture pixels. */
-function moveTurnedText(index, move) {
-  painter.turned.shift(index, move);
+/** Turned text moved on the back's preview, in picture pixels, or turned or sized under it. */
+function changeTurnedText(index, change) {
+  painter.turned.change(index, change);
   schedulePreview();
 }
 

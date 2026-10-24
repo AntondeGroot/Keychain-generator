@@ -45,6 +45,8 @@ class TurnedText:
 
     points: tuple[tuple[float, float], ...]  # a closed spline through them, in picture pixels
     shift: tuple[float, float] = (0.0, 0.0)  # where the turned text moves, in picture pixels
+    degrees: float = 0.0  # anticlockwise as seen from behind
+    scale: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -71,7 +73,7 @@ class TracedPicture:
     def turn_in_mm(self, text: TurnedText) -> Turn:
         """The area round the text and its shift, from the page's picture pixels to mm."""
         area = Polygon([self.placement.in_mm(x, y) for x, y in spline(text.points, closed=True)])
-        return Turn(area.buffer(0), self.placement.shift_in_mm(*text.shift))
+        return Turn(area.buffer(0), self.placement.shift_in_mm(*text.shift), text.degrees, text.scale)
 
 
 def design_keychain(

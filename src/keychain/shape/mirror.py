@@ -1,7 +1,8 @@
 """Text on the back. Both faces have the same layers, so seen from behind the picture shows
 mirrored, and text in it reads backwards. Text inside an area drawn round it is turned over once
 more on the back, about the area's middle, so from behind it reads the right way round. It can be
-moved as well, to sit on what is behind it, such as a speech bubble that is not symmetric.
+moved as well, to sit on what is behind it, such as a speech bubble that is not symmetric, and
+turned and made smaller where the back has less room for it.
 
 Where the text was and no longer is, the back takes the colour round the text: the colour most
 of the area's edge runs through, leaving out ink. Ink is the lines, such as the outlines of the
@@ -20,10 +21,12 @@ from keychain.shape.layer import Layer, areas_only
 class Turn:
     area: BaseGeometry  # round the text, in mm
     shift: tuple[float, float]  # where the turned text moves, in mm, seen from the front
+    degrees: float = 0.0  # anticlockwise as seen from behind, about the area's middle
+    scale: float = 1.0  # about the area's middle
 
 
 def landing(turn: Turn) -> BaseGeometry:
-    """Where the area lands on the back, turned and moved."""
+    """Where the area lands on the back, turned over, turned, sized and moved."""
     return _moved(turn, turn.area)
 
 
@@ -52,8 +55,11 @@ def _turned(face: list[Layer], turn: Turn, picture: BaseGeometry, ink: str) -> l
 
 
 def _moved(turn: Turn, shape: BaseGeometry) -> BaseGeometry:
-    left, _, right, _ = turn.area.bounds
-    turned = affinity.scale(shape, xfact=-1, origin=((left + right) / 2, 0))
+    """Anticlockwise from behind is clockwise from the front, where these shapes are."""
+    left, bottom, right, top = turn.area.bounds
+    middle = ((left + right) / 2, (bottom + top) / 2)
+    turned = affinity.scale(shape, xfact=-turn.scale, yfact=turn.scale, origin=middle)
+    turned = affinity.rotate(turned, -turn.degrees, origin=middle)
     return affinity.translate(turned, *turn.shift)
 
 
