@@ -9,6 +9,7 @@ from pathlib import Path
 
 FORMAT = "keychain-project"
 NEWEST_VERSION = 2  # version 1 had a width for the widest side; now width, height or both
+SUFFIX = ".keychain.json"
 
 
 def read_project(path: Path) -> dict:
@@ -22,6 +23,11 @@ def read_project(path: Path) -> dict:
     if project.get("version", 0) > NEWEST_VERSION:
         raise ValueError(f"{path} was saved by a newer version of the keychain page")
     return as_newest(project)
+
+
+def project_name(path: Path) -> str:
+    """A project's name, which its keychain files are named after: its file's, before .keychain.json."""
+    return path.name.removesuffix(SUFFIX) if path.name.endswith(SUFFIX) else path.stem
 
 
 def as_newest(project: dict) -> dict:

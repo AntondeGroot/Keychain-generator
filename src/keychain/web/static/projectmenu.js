@@ -1,17 +1,19 @@
 // The Save, Save as and Open project buttons: they turn the page into a project file and back,
 // and say which file Save writes over.
 
-import { fromFileInput, projectBlob, readProject } from "./project.js";
+import { fromFileInput, projectBlob, projectName, readProject } from "./project.js";
 import { ProjectFile } from "./projectfile.js";
 import { setStatus } from "./server.js";
 
 const element = (id) => document.getElementById(id);
 
 export class ProjectMenu {
-  /** request gives the page as it would be saved; restore puts a saved project back on it. */
-  constructor(request, restore) {
+  /** request gives the page as it would be saved; restore puts a saved project back on it;
+   * rename hears the name of the file saved to, which the keychain's files take. */
+  constructor(request, restore, rename) {
     this.request = request;
     this.restore = restore;
+    this.rename = rename;
     this.file = new ProjectFile(showFile);
     element("save-project").addEventListener("click", () => this.#save("save"));
     element("save-project-as").addEventListener("click", () => this.#save("saveAs"));
@@ -30,7 +32,9 @@ export class ProjectMenu {
     const request = this.request();
     try {
       const saved = await this.file[how](projectBlob(request), `${request.name}.keychain.json`);
-      if (saved) setStatus(`Saved as ${saved}.`);
+      if (!saved) return;
+      this.rename(projectName(saved));
+      setStatus(`Saved as ${saved}.`);
     } catch (error) {
       setStatus(`Could not save the project: ${error.message}`, "error");
     }

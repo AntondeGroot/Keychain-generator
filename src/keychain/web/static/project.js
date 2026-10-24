@@ -3,12 +3,13 @@
 
 const FORMAT = "keychain-project";
 const VERSION = 2; // version 1 had a width for the widest side; now width, height or both
+const SUFFIX = /(\.keychain)?\.json$/;
 
 export function projectBlob(request) {
   return new Blob([JSON.stringify({ format: FORMAT, version: VERSION, ...request })], { type: "application/json" });
 }
 
-/** The project in a file; throws with a readable message for anything else. */
+/** The project in a file, named after it; throws with a readable message for anything else. */
 export async function readProject(file) {
   let project;
   try {
@@ -18,7 +19,12 @@ export async function readProject(file) {
   }
   if (project.format !== FORMAT) throw new Error(`${file.name} is not a keychain project`);
   if (project.version > VERSION) throw new Error(`${file.name} was saved by a newer version of this page`);
-  return asNewest(project);
+  return { ...asNewest(project), name: projectName(file.name) };
+}
+
+/** A project's name, which its keychain files are named after: its file's, before .keychain.json. */
+export function projectName(fileName) {
+  return fileName.replace(SUFFIX, "");
 }
 
 /** A width for the widest side, as version 1 saved it, is a square for the picture to fit in. */

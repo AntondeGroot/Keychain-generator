@@ -10,7 +10,7 @@ from keychain.design import design_keychain
 from keychain.files import open_folder, write_keychain_files
 from keychain.picture.detection import detect_colours
 from keychain.picture.palette import Colour, parse_colour, rim_colour, with_unique_names
-from keychain.project import read_project
+from keychain.project import project_name, read_project
 from keychain.spec import KeychainSpec
 from keychain.web.api import designed_from_request, file_name
 from keychain.web.server import serve
@@ -75,7 +75,7 @@ def _from_project(args):
     if args.rim_colour is not None:
         request["rim"] = args.rim_colour
     print(f"project: {args.project}")
-    return designed_from_request(request), file_name(request.get("name") or args.project.stem)
+    return designed_from_request(request), file_name(project_name(args.project))
 
 
 def _palette(args, image: Image.Image) -> list[Colour]:
