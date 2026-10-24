@@ -46,7 +46,7 @@ const back = new BackPreview(element("back"), moveTurnedText);
 const rim = new RimChoice(element("rim"), element("rim-swatch"), schedulePreview);
 const sides = ["width", "height"].map((side) => ({ tick: element(`by-${side}`), input: element(side) }));
 const size = new PictureSize(sides, schedulePreview);
-const projectMenu = new ProjectMenu(designRequest, restoreProject);
+const projectMenu = new ProjectMenu(designRequest, restoreProject, (name) => (state.name = name));
 
 element("picture").addEventListener("change", (event) => fromFileInput(event.target, loadPicture));
 element("add-colour").addEventListener("click", () => colours.add(NEW_COLOUR));

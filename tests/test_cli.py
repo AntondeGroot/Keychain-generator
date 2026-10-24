@@ -71,3 +71,14 @@ def test_a_height_alone_sets_the_height_and_leaves_the_width_to_follow(tmp_path)
     core = trimesh.load(tmp_path / "out" / "bar" / "bar-core.stl")
     (left, _, _), (right, _, _) = core.bounds
     assert right - left == pytest.approx(80 + 2 * KeychainSpec().rim_mm, abs=0.1)
+
+
+def test_a_projects_files_are_named_after_its_file_not_the_picture_it_was_made_from(tmp_path):
+    project = tmp_path / "snoopy.keychain.json"  # the project saved as "Red Disc"
+    project.write_text(json.dumps(_project_as_the_page_saves_it(width_mm=30)))
+
+    main(["make", "--project", str(project), "--out", str(tmp_path / "out")])
+
+    assert sorted(path.name for path in (tmp_path / "out").iterdir()) == ["snoopy"]
+    assert (tmp_path / "out" / "snoopy" / "snoopy.3mf").exists()
+    assert (tmp_path / "out" / "snoopy" / "snoopy-core.stl").exists()

@@ -86,7 +86,8 @@ This opens a page on your own computer (http://127.0.0.1:8765, not reachable fro
 
 **Save project** keeps everything in one `.keychain.json` file: the picture, the painted masks
 and colour paint, the Connect lines and splines, the colours, sizes, rim colour and ring
-position.
+position. Once saved or opened, the downloaded files take the project's name: `snoopy` for
+`snoopy.keychain.json`.
 **Open project** carries on where you left off.
 
 The preview updates by itself after every change; each one takes a few seconds.
