@@ -44,7 +44,6 @@ body {
 
 header { padding: 12px 16px; border-bottom: 1px solid var(--line); }
 h1 { margin: 0; font-size: 20px; }
-h2 { margin: 0 0 8px; font-size: 15px; }
 #status { margin: 4px 0 0; color: var(--muted); }
 #status.busy { color: var(--busy); }
 #status.error { color: var(--error); }
@@ -73,7 +72,38 @@ fieldset {
   gap: 8px;
 }
 
-legend { font-weight: 600; padding: 0 4px; }
+/* Each section's title heads its card, numbered in order, over a line across it. Floated, the
+   legend leaves the border and becomes the card's first row. */
+.controls { counter-reset: section; }
+legend, .canvas-panel h2 {
+  float: left;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+  font-weight: 600;
+}
+legend::before {
+  counter-increment: section;
+  content: counter(section);
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+legend small { color: var(--muted); font-size: 13px; font-weight: 400; }
+legend small::before { content: "·"; margin-right: 8px; }
+.canvas-panel h2 { float: none; margin-bottom: 8px; } /* the panels are not fieldsets */
 label { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 input[type="number"] { width: 80px; }
 .hint { margin: 0; color: var(--muted); font-size: 13px; }
