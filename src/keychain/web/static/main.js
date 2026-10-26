@@ -2,6 +2,7 @@
 
 import { BackPreview } from "./backpreview.js";
 import { ColourList } from "./colours.js";
+import { showFilaments } from "./filaments.js";
 import { showGuide } from "./guide.js";
 import { PaintColours } from "./paintcolours.js";
 import { Painter } from "./painter.js";
@@ -24,7 +25,7 @@ const CLEARS = {
 };
 
 const element = (id) => document.getElementById(id);
-const state = { image: null, name: "keychain", hole: null };
+const state = { image: null, name: "keychain", hole: null }; // all sent with the design
 let previewTimer = null;
 let coloursTimer = null;
 let latestRequest = 0;
@@ -43,7 +44,7 @@ const colours = new ColourList(element("colours"), coloursChanged);
 const paintColours = new PaintColours(element("paint-colours"), (...chosen) => tools.paintIn(...chosen));
 const preview = new Preview(element("preview"), placeRing);
 const back = new BackPreview(element("back"), changeTurnedText);
-const rim = new RimChoice(element("rim"), element("rim-swatch"), schedulePreview);
+const rim = new RimChoice(element("rim"), element("rim-swatch"), coloursChanged);
 const sides = ["width", "height"].map((side) => ({ tick: element(`by-${side}`), input: element(side) }));
 const size = new PictureSize(sides, schedulePreview);
 const projectMenu = new ProjectMenu(designRequest, restoreProject, (name) => (state.name = name));
@@ -132,8 +133,9 @@ async function restoreProject(project) {
     if (project.spec[input.dataset.spec] != null) input.value = project.spec[input.dataset.spec];
   }
   size.set(project.spec);
-  coloursChanged();
+  rim.follow(project.colours); // its choices first, so the rim saved is one of them
   rim.set(project.rim);
+  coloursChanged();
 }
 
 function designRequest() {
@@ -142,7 +144,7 @@ function designRequest() {
     spec[input.dataset.spec] = input.disabled ? null : Number(input.value); // a side not ticked follows from the picture
   }
   return {
-    image: state.image,
+    ...state,
     mask: painter.dataUrl("mask"),
     detail: painter.dataUrl("detail"),
     paint: painter.dataUrl("paint"),
@@ -150,15 +152,12 @@ function designRequest() {
     rim: rim.value(),
     colours: colours.get(),
     spec,
-    hole: state.hole,
-    name: state.name,
   };
 }
 
 /** Downloading needs a preview to download, and waits while the server is busy. */
 function updateDownloadButton() {
-  const hasPreview = element("preview").querySelector("svg") !== null;
-  element("download").disabled = isBusy() || !hasPreview;
+  element("download").disabled = isBusy() || !element("preview").querySelector("svg");
 }
 
 /** Turned text moved on the back's preview, in picture pixels, or turned or sized under it. */
@@ -196,5 +195,6 @@ function zoomChanged(level) {
 function coloursChanged() {
   rim.follow(colours.get());
   paintColours.follow(colours.get());
+  showFilaments(element("filament-count"), colours.get(), rim.value());
   schedulePreview();
 }

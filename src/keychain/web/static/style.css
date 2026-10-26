@@ -142,6 +142,24 @@ button[aria-pressed="true"] { border-color: var(--accent); outline: 2px solid va
 button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 button:disabled { opacity: 0.5; cursor: default; }
 
+/* How many filaments to load, over the colour list: what a printer needs to know first. */
+.filament-count {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin: 0;
+  padding: 6px 10px;
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+}
+.filament-count[hidden] { display: none; }
+.filament-count strong { margin-right: 4px; }
+.filament-count .dot {
+  width: 14px; height: 14px; border-radius: 50%; background: var(--swatch); box-shadow: 0 0 0 1px var(--line);
+}
+.filament-count small { margin-left: 4px; color: var(--muted); font-size: 13px; }
 #colours { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 #colours li { display: flex; gap: 6px; align-items: center; }
 #colours input[type="text"] { flex: 1 1 4em; min-width: 3em; }
