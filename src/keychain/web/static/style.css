@@ -204,6 +204,16 @@ select { font: inherit; max-width: 160px; }
 .stack.picking #lines-canvas { cursor: copy; }
 .stack.on-handle #lines-canvas { cursor: move; }
 .stack.no-tool #lines-canvas { cursor: default; }
+/* The brush's size round the pointer, light and dark so it shows on any picture. */
+.brush-ring {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgb(255 255 255 / 0.9);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.7), inset 0 0 0 1px rgb(0 0 0 / 0.7);
+  pointer-events: none;
+}
+.brush-ring[hidden] { display: none; }
 .tool svg { width: 16px; height: 16px; vertical-align: -3px; }
 /* The colour to paint in: its name after a dot of the colour. */
 .paint-colours button::before {

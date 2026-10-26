@@ -1,6 +1,7 @@
 // The tools that can be in hand over the picture, by name, all answering the pointer alike:
 // down (true to keep the pointer until let go), move, up, leave, the guide to show, and cancel
-// for Esc. pickUp and putDown are told when the tool is chosen and put away; remove for Delete.
+// for Esc. pickUp and putDown are told when the tool is chosen and put away; remove for Delete;
+// brushing says whether it paints with the brush, so the brush's size shows under the pointer.
 
 import { MASK_ACTIONS } from "./masktool.js";
 import { ERASERS } from "./paintlayers.js";
@@ -52,6 +53,7 @@ function maskTool(painter, name, action) {
     guide: () => mask.guide(action),
     cancel: () => mask.cancel(),
     remove: () => mask.remove(),
+    brushing: () => mask.method === "brush" && action !== "cut",
     pickUp: () => mask.inHand(true),
     putDown: () => mask.inHand(false),
   };
@@ -89,6 +91,10 @@ class Brush {
 
   guide() {
     return "";
+  }
+
+  brushing() {
+    return true;
   }
 
   cancel() {}
