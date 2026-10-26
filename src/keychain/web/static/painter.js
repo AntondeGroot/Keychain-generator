@@ -4,6 +4,7 @@
 // paint. Background and keep are marked with the brush or with shapes. Areas drawn round text
 // turn it on the back. The pointer goes to the tool in hand (handtools.js).
 
+import { BrushRing } from "./brushring.js";
 import { HandDrawn } from "./handdrawn.js";
 import { handTools } from "./handtools.js";
 import { ConnectLines } from "./lines.js";
@@ -36,6 +37,7 @@ export class Painter {
     this.tool = null;
     this.paintColour = "#000000";
     this.brushScreenPx = 20;
+    this.ring = new BrushRing(stack);
     this.onPick = null;
     this.#listen(overlays.lines);
     this.setTool("background");
@@ -92,6 +94,7 @@ export class Painter {
     this.#inHand()?.putDown?.();
     this.#inHand()?.cancel();
     this.tool = tool;
+    this.ring.show(null);
     this.stack.classList.toggle("no-tool", tool === null);
     this.stack.classList.remove("on-handle");
     this.#inHand()?.pickUp?.();
@@ -134,7 +137,10 @@ export class Painter {
     canvas.addEventListener("pointerdown", (event) => this.#down(event));
     canvas.addEventListener("pointermove", (event) => this.#move(event));
     canvas.addEventListener("pointerup", () => this.#up());
-    canvas.addEventListener("pointerleave", () => this.#inHand()?.leave?.());
+    canvas.addEventListener("pointerleave", () => {
+      this.ring.show(null);
+      this.#inHand()?.leave?.();
+    });
     document.addEventListener("keydown", (event) => {
       if (event.target.closest?.("input, select, textarea")) return; // typing a number, say
       if (event.key === "Escape") this.#inHand()?.cancel();
@@ -152,6 +158,8 @@ export class Painter {
   }
 
   #move(event) {
+    const brushing = !this.onPick && this.#inHand()?.brushing?.();
+    this.ring.show(brushing ? { x: event.offsetX, y: event.offsetY } : null, this.brushScreenPx);
     if (!this.onPick) this.#inHand()?.move?.(this.#point(event), event);
   }
 
