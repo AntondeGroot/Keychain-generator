@@ -15,7 +15,7 @@
   <main>
     <section class="controls">
       <fieldset>
-        <legend>1. Picture</legend>
+        <legend>Picture</legend>
         <input type="file" id="picture" accept="image/png,image/jpeg,image/webp" aria-label="Picture file">
         <div class="row">
           <button type="button" id="save-project" disabled>Save project</button>
@@ -28,7 +28,7 @@
       </fieldset>
 
       <fieldset>
-        <legend>2. Colours</legend>
+        <legend>Colours</legend>
         <p class="hint">One per filament. The darkest is the ink: the lines.
           A <strong>dark</strong> shade prints one thin layer of its colour over ink; a <strong>light</strong>
           shade prints one thin layer of the lightest colour over its colour.</p>
@@ -40,7 +40,7 @@
       </fieldset>
 
       <fieldset>
-        <legend>3. Paint</legend>
+        <legend>Paint</legend>
         <p class="hint">Paint a colour where the picture should have it, such as a faint strip of hair
           or an area to print as a shade.</p>
         <div class="row paint-colours" id="paint-colours" role="group" aria-label="Colour to paint in"></div>
@@ -74,7 +74,7 @@
       </fieldset>
 
       <fieldset>
-        <legend>4. What to keep (rough is fine)</legend>
+        <legend>What to keep <small>rough is fine</small></legend>
         <div class="row" role="group" aria-label="What to keep">
           <button type="button" class="tool" data-tool="background" aria-pressed="true">Background</button>
           <button type="button" class="tool" data-tool="keep" aria-pressed="false">Keep</button>
@@ -120,7 +120,7 @@
       </fieldset>
 
       <fieldset>
-        <legend>5. Details</legend>
+        <legend>Details</legend>
         <div class="row" role="group" aria-label="Details">
           <button type="button" class="tool" data-tool="smooth" aria-pressed="false">Smooth</button>
           <button type="button" class="tool" data-tool="detailed" aria-pressed="false">Detailed</button>
@@ -138,7 +138,7 @@
       </fieldset>
 
       <fieldset>
-        <legend>6. Text on the back</legend>
+        <legend>Text on the back</legend>
         <p class="hint">From behind, the picture shows mirrored, so text reads backwards. Click points
           round the text, and it reads the right way round on the back as well. The preview then
           shows the back too: drag the dashed area there to move the text, such as onto the middle
@@ -158,7 +158,7 @@
       </fieldset>
 
       <fieldset>
-        <legend>7. Size and smoothing</legend>
+        <legend>Size and smoothing</legend>
         <label><span><input type="checkbox" id="by-width" checked> Picture width (mm)</span>
           <input type="number" id="width" data-spec="width_mm" value="50" min="10" step="1"></label>
         <label><span><input type="checkbox" id="by-height"> Picture height (mm)</span>
@@ -190,7 +190,7 @@
       </fieldset>
 
       <fieldset>
-        <legend>8. Keyring</legend>
+        <legend>Keyring</legend>
         <button type="button" id="place-ring" aria-pressed="false">Place ring in preview</button>
         <button type="button" id="auto-ring">Automatic position</button>
       </fieldset>
